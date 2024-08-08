@@ -158,7 +158,7 @@ jobs:
           username: ${{ secrets.QUAY_USER }}
           password: ${{ secrets.QUAY_TOKEN }}
 
-      # Uncomment this when we disable the old workflow
+      # Uncomment this when we disable the old workflows
       # - name: Push images to quay.io
       #   if: ${{ env.DEPLOY_IMAGES == 'true' }}
       #   run: |
