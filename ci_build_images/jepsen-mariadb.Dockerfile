@@ -1,6 +1,6 @@
 USER root
 
-# Install additional packages
+# Install additional packages - Trigger jepsen
 RUN apt-get update && apt-get -y install --no-install-recommends \
     apt-transport-https \
     automake \
