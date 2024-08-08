@@ -1,4 +1,4 @@
-# msan.Dockerfile
+# msan.Dockerfiles
 # this is to create images with MSAN for BB workers
 ARG CLANG_VERSION=15
 
