@@ -1,0 +1,78 @@
+name: Build Test
+
+on:
+  workflow_dispatch:
+
+jobs:
+  build:
+    runs-on: 'ubuntu-22.04'
+    services:
+      registry:
+        image: registry:2
+        ports:
+          - 5000:5000
+    name: debian10_test
+    env:
+      WORKDIR: ci_build_images/tmp
+
+    steps:
+      - name: Install qemu-user-static
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y qemu-user-static
+
+      - name: Build image
+        run: |
+          podman manifest create bb-worker:test_debian10
+          for arch in $(echo linux/amd64, linux/arm64/v8 | sed 's/,/ /g'); do
+            msg="Build $arch:"
+            line="${msg//?/=}"
+            printf "\n${line}\n${msg}\n${line}\n"
+            podman buildx build --tag bb-worker:test_debian10-${arch//\//-} \
+              --platform $arch \
+              --manifest bb-worker:test_debian10 \
+              -f $GITHUB_WORKSPACE/Dockerfile
+          done
+          podman images
+
+      - name: Push images to local registry
+        run: |
+          podman manifest push --tls-verify=0 \
+            --all bb-worker:test_debian10 \
+            docker://localhost:5000/bb-worker:test_debian10
+
+      - name: Check multi-arch container
+        run: |
+          # make some space on the runner
+          if [[ -d $HOME/.local/share/containers ]]; then
+            sudo rm -rf $HOME/.local/share/containers
+          fi
+          for p in linux/amd64, linux/arm64/v8; do
+            platform="${p/,/}"
+            image="localhost:5000/bb-worker:test_debian10"
+            msg="Testing docker image $image on platform $platform"
+            line="${msg//?/=}"
+            printf "\n${line}\n${msg}\n${line}\n"
+            docker pull -q --platform "$platform" "$image"
+            docker run -i "$image" buildbot-worker --version
+            docker run -i "$image" dumb-init twistd --pidfile= -y /home/buildbot/buildbot.tac
+            if [ "false" == "false" ]; then
+              docker run -u root -i "$image" bash -c "touch /tmp/foo && qpress -r /tmp /root/qpress.qp"
+            fi
+          done
+
+      - name: Login to ghcr.io
+        uses: docker/login-action@v2
+        with:
+          registry: ghcr.io
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: ghcr.io - push dev tag
+        run: |
+          msg="Push docker image to ghcr.io (${{ env.IMG }})"
+          line="${msg//?/=}"
+          printf "\n${line}\n${msg}\n${line}\n"
+          skopeo copy --all --src-tls-verify=0 \
+            docker://localhost:5000/bb-worker:test_debian10 \
+            docker://ghcr.io/${GITHUB_REPOSITORY,,}/bb-worker:test_debian10
