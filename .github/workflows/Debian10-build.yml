@@ -1,4 +1,4 @@
-name: Build Test
+name: Debian 10 build
 
 on:
   workflow_dispatch:
