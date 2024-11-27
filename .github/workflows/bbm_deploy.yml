@@ -11,7 +11,7 @@ jobs:
 
       - name: Set up env vars
         run: |
-          echo "ENV" >>$GITHUB_ENV
+          echo "ENV=DEV" >>$GITHUB_ENV
       - name: prepare
         run: |
           echo '${{ secrets[format('BBM_{0})_SSH_PRIVATE_KEY', vars.ENV)] }}' > BBM_DEV_SSH_PRIVATE_KEY.txt
