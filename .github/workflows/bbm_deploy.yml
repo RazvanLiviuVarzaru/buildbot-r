@@ -10,5 +10,10 @@ jobs:
     steps:
       - name: prepare
         run: |
-          echo "${{ secrets.BBM_DEV_SSH_PRIVATE_KEY }}"
-          echo "${{ secrets.BBM_DEV_SSH_KNOWN_HOSTS }}"
+          echo "${{ secrets.BBM_DEV_SSH_PRIVATE_KEY }}" > BBM_DEV_SSH_PRIVATE_KEY.txt
+
+      - name: Test upload
+        uses: actions/upload-artifact@v2
+        with:
+          name: dev-ssh
+          path: BBM_DEV_SSH_PRIVATE_KEY.txt
