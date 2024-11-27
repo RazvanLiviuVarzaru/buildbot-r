@@ -8,9 +8,13 @@ jobs:
   development-deploy:
     runs-on: ubuntu-22.04
     steps:
+
+      - name: Set up env vars
+        run: |
+          echo "ENV" >>$GITHUB_ENV
       - name: prepare
         run: |
-          echo "${{ secrets.BBM_DEV_SSH_PRIVATE_KEY }}" > BBM_DEV_SSH_PRIVATE_KEY.txt
+          echo '${{ secrets[format('BBM_{0})_SSH_PRIVATE_KEY', vars.ENV)] }}' > BBM_DEV_SSH_PRIVATE_KEY.txt
 
       - name: Test upload
         uses: actions/upload-artifact@v4
