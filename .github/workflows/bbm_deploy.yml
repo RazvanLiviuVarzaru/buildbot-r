@@ -13,7 +13,7 @@ jobs:
           echo "${{ secrets.BBM_DEV_SSH_PRIVATE_KEY }}" > BBM_DEV_SSH_PRIVATE_KEY.txt
 
       - name: Test upload
-        uses: actions/upload-artifact@v2
+        uses: actions/upload-artifact@v4
         with:
           name: dev-ssh
           path: BBM_DEV_SSH_PRIVATE_KEY.txt
