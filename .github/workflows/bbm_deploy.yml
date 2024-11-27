@@ -11,10 +11,10 @@ jobs:
 
       - name: Set up env vars
         run: |
-          echo "ENV=DEV" >>$GITHUB_ENV
+          echo "bb_env=DEV" >>$GITHUB_ENV
       - name: prepare
         run: |
-          echo '${{ secrets[format('BBM_{0}_SSH_PRIVATE_KEY', 'DEV')] }}' > BBM_DEV_SSH_PRIVATE_KEY.txt
+          echo '${{ secrets[format('BBM_{0}_SSH_PRIVATE_KEY', env.bb_env)] }}' > BBM_DEV_SSH_PRIVATE_KEY.txt
 
       - name: Test upload
         uses: actions/upload-artifact@v4
