@@ -63,6 +63,7 @@
         - uses: actions/checkout@v4
   
         - name: prepare
+          if: ${{ env.DEPLOY == 'true' }}
           run: |
             echo '${{ secrets[format('BBM_{0}_SSH_PRIVATE_KEY', env.BB_ENV)] }}' > test_secret.txt
   
