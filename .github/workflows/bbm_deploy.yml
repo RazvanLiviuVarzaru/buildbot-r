@@ -47,7 +47,7 @@
             echo "GitHub Repository is ${{ github.repository }}"
             echo "GitHub Event Name is ${{ github.event_name }}"
     
-            # DEV environment
+            # DEV environmentss
             if [[ ${{ github.repository }} == 'RazvanLiviuVarzaru/buildbot-r' ]] && [[ ${{ github.ref }} == 'refs/heads/dev' ]]; then
               echo "DEPLOY=true" >>$GITHUB_ENV
               echo "BB_ENV=DEV" >>$GITHUB_ENV
