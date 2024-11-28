@@ -55,7 +55,7 @@
               echo "ENV_FILE=.env.dev" >>$GITHUB_ENV
             fi
   
-            # PROD environment
+            # PROD environments
             if [[ ${{ github.repository }} == 'RazvanLiviuVarzaru/buildbot-r' ]] && [[ ${{ github.ref }} == 'refs/heads/main' ]] && [[ ${{ github.event_name }} == 'workflow_dispatch' ]]; then
               echo "DEPLOY=true" >>$GITHUB_ENV
               echo "BB_ENV=PROD" >>$GITHUB_ENV
