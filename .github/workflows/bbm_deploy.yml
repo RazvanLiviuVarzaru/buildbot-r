@@ -43,9 +43,9 @@
         - name: Set up env vars
           run: |
             echo "DEPLOY=false" >>$GITHUB_ENV
-            echo github.repository
-            echo github.ref
-            echo github.event_name
+            echo ${{ github.repository }}
+            echo ${{ github.ref }}
+            echo ${{ github.event_name }}
   
             # DEV environment
             if [[ github.repository == 'RazvanLiviuVarzaru/buildbot-r' ]] && [[ github.ref == 'refs/heads/dev' ]]; then
