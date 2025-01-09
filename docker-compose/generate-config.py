@@ -10,19 +10,12 @@ exec(open("../master-private.cfg").read(), config, {})
 BUILDBOT_STOP_GRACE_PERIOD = "5m"
 
 MASTER_DIRECTORIES = [
-    "master-nonlatent",
-    "master-libvirt",
-    "autogen/aarch64-master-0",
     "autogen/amd64-master-0",
     "autogen/amd64-master-1",
-    "autogen/ppc64le-master-0",
-    "autogen/s390x-master-0",
-    "autogen/x86-master-0",
     "master-docker-nonstandard",
     "master-galera",
     "master-protected-branches",
     "master-docker-nonstandard-2",
-    "master-bintars",
 ]
 
 VOLUMES = ["./logs:/var/log/buildbot", "./buildbot/:/srv/buildbot/master"]
@@ -158,7 +151,6 @@ def main(args):
         for key in [element.replace("/", "_") for element in MASTER_DIRECTORIES]
     }
     for master in [
-        "master-nonlatent",
         "master-docker-nonstandard",
         "master-docker-nonstandard-2",
     ]:
@@ -170,7 +162,7 @@ def main(args):
     current_env_keys = set(os.environ.keys())
 
     # Load environment variables from the corresponding .env file
-    env_file = ".env" if args.env == "prod" else ".env.dev"
+    env_file = ".env" if args.env == "prod" else ".env.local"
     load_dotenv(env_file)
 
     # Determine the keys that were added by the .env file

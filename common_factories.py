@@ -166,25 +166,6 @@ def addPostTests(factory):
         )
     )
     factory.addStep(
-        steps.Trigger(
-            name="eco",
-            schedulerNames=["s_eco"],
-            waitForFinish=False,
-            updateSourceStamp=False,
-            set_properties={
-                "tarbuildnum": Property("tarbuildnum"),
-                "mariadb_binary": Property("mariadb_binary"),
-                "mariadb_version": Property("mariadb_version"),
-                "master_branch": Property("master_branch"),
-                "parentbuildername": Property("buildername"),
-            },
-            doStepIf=(
-                lambda step: savePackageIfBranchMatch(step, SAVED_PACKAGE_BRANCHES)
-                and hasEco(step)
-            ),
-        )
-    )
-    factory.addStep(
         steps.ShellCommand(
             name="cleanup", command="rm -r * .* 2> /dev/null || true", alwaysRun=True
         )
@@ -762,61 +743,6 @@ EOF
                 """
 Repository available with: curl %(kw:url)s/%(prop:tarbuildnum)s/%(prop:buildername)s/MariaDB.repo -o /etc/yum.repos.d/MariaDB.repo""",
                 url=os.environ["ARTIFACTS_URL"],
-            ),
-        )
-    )
-    f_rpm_autobake.addStep(
-        steps.Trigger(
-            name="dockerlibrary",
-            schedulerNames=["s_dockerlibrary"],
-            waitForFinish=False,
-            updateSourceStamp=False,
-            set_properties={
-                "tarbuildnum": Property("tarbuildnum"),
-                "mariadb_version": Property("mariadb_version"),
-                "master_branch": Property("master_branch"),
-                "parentbuildername": Property("buildername"),
-                "ubi": "-ubi",
-                "GH_WORKFLOW": "test-image-ent.yml",
-            },
-            doStepIf=lambda step: hasDockerLibrary(step),
-        )
-    )
-    f_rpm_autobake.addStep(
-        steps.Trigger(
-            name="install",
-            schedulerNames=["s_install"],
-            waitForFinish=False,
-            updateSourceStamp=False,
-            set_properties={
-                "tarbuildnum": Property("tarbuildnum"),
-                "mariadb_version": Property("mariadb_version"),
-                "master_branch": Property("master_branch"),
-                "parentbuildername": Property("buildername"),
-            },
-            doStepIf=(
-                lambda step: hasInstall(step)
-                and savePackageIfBranchMatch(step, SAVED_PACKAGE_BRANCHES)
-                and hasFiles(step)
-            ),
-        )
-    )
-    f_rpm_autobake.addStep(
-        steps.Trigger(
-            name="major-minor-upgrade",
-            schedulerNames=["s_upgrade"],
-            waitForFinish=False,
-            updateSourceStamp=False,
-            set_properties={
-                "tarbuildnum": Property("tarbuildnum"),
-                "mariadb_version": Property("mariadb_version"),
-                "master_branch": Property("master_branch"),
-                "parentbuildername": Property("buildername"),
-            },
-            doStepIf=(
-                lambda step: hasUpgrade(step)
-                and savePackageIfBranchMatch(step, SAVED_PACKAGE_BRANCHES)
-                and hasFiles(step)
             ),
         )
     )

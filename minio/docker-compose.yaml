@@ -27,7 +27,7 @@ services:
   nginx:
     image: nginx:latest
     restart: unless-stopped
-    container_name: nginx
+    container_name: nginx-minio
     hostname: nginx
     volumes:
       - ./nginx/nginx.conf:/etc/nginx/nginx.conf:ro

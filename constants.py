@@ -53,18 +53,9 @@ else:
     BUILDERS_DOCKERLIBRARY = ["amd64-rhel8-dockerlibrary"]
 
 BUILDERS_GALERA_MTR = [
-    "aarch64-debian-12",
     "amd64-fedora-39",
-    "s390x-ubuntu-2004",
-    "s390x-ubuntu-2204",
-    "ppc64le-ubuntu-2004",
-    "ppc64le-ubuntu-2204",
-    "amd64-freebsd-14",
 ]
-BUILDERS_S3_MTR = [
-    "aarch64-ubuntu-2004-debug",
-    "s390x-sles-1506",
-]
+BUILDERS_S3_MTR = []
 
 # Defines branches for which we save packages
 SAVED_PACKAGE_BRANCHES = BRANCHES_MAIN + [
@@ -82,17 +73,6 @@ RELEASE_BRANCHES = ["bb-*-release", "preview-*"]
 # For example, if Debian 10 has MariaDB 10.3 by default, we don't support MariaDB 10.2 on it.
 SUPPORTED_PLATFORMS = {}
 SUPPORTED_PLATFORMS["10.5"] = [
-    "aarch64-centos-stream9",
-    "aarch64-debian-10-bintar",
-    "aarch64-debian-11",
-    "aarch64-fedora-39",
-    "aarch64-macos",
-    "aarch64-macos-compile-only",
-    "aarch64-openeuler-2403",
-    "aarch64-rhel-8",
-    "aarch64-rhel-9",
-    "aarch64-ubuntu-2004",
-    "aarch64-ubuntu-2004-debug",
     "amd64-centos-7-bintar",
     "amd64-centos-stream9",
     "amd64-debian-11",
@@ -103,7 +83,6 @@ SUPPORTED_PLATFORMS["10.5"] = [
     "amd64-debian-12-rocksdb",
     "amd64-fedora-39",
     "amd64-fedora-40-valgrind",
-    "amd64-freebsd-14",
     "amd64-openeuler-2403",
     "amd64-rhel-8",
     "amd64-rhel-9",
@@ -114,41 +93,17 @@ SUPPORTED_PLATFORMS["10.5"] = [
     "amd64-ubuntu-2204-debug-ps",
     "amd64-ubuntu-2204-icc",
     "amd64-ubuntu-2404-clang18-asan",
-    "amd64-windows",
-    "amd64-windows-packages",
-    "ppc64be-aix-71",
-    "ppc64le-centos-stream9",
-    "ppc64le-rhel-8",
-    "ppc64le-rhel-9",
-    "ppc64le-ubuntu-2004",
-    "ppc64le-ubuntu-2004-debug",
-    "ppc64le-ubuntu-2004-without-server",
-    "s390x-rhel-8",
-    "s390x-rhel-9",
-    "s390x-ubuntu-2004",
-    "s390x-ubuntu-2004-debug",
-    "x86-debian-12-fulltest",
 ]
 
 SUPPORTED_PLATFORMS["10.6"] = SUPPORTED_PLATFORMS["10.5"].copy()
 
 # Add only 10.5 supported platforms
-SUPPORTED_PLATFORMS["10.5"] += [
-    "amd64-kvm-centos-6-bintar",
-    "amd64-kvm-ubuntu-1604-bintar",
-    "x86-kvm-centos-6-bintar",
-    "x86-kvm-ubuntu-1604-bintar",
-]
+SUPPORTED_PLATFORMS["10.5"] += []
 
 SUPPORTED_PLATFORMS["10.6"] += [
-    "aarch64-ubuntu-2204",
     "amd64-opensuse-1505",
     "amd64-sles-1505",
     "amd64-ubuntu-2204",
-    "ppc64le-ubuntu-2204",
-    "s390x-ubuntu-2204",
-    "s390x-sles-1505",
-    "x86-debian-12",
 ]
 
 SUPPORTED_PLATFORMS["10.9"] = SUPPORTED_PLATFORMS["10.6"].copy()
@@ -159,10 +114,6 @@ SUPPORTED_PLATFORMS["10.10"] = [
 SUPPORTED_PLATFORMS["10.10"] += SUPPORTED_PLATFORMS["10.9"]
 
 SUPPORTED_PLATFORMS["10.11"] = [
-    "aarch64-debian-12",
-    "aarch64-fedora-40",
-    "aarch64-fedora-41",
-    "aarch64-ubuntu-2404",
     "amd64-debian-12",
     "amd64-debian-12-debug-embedded",
     "amd64-fedora-40",
@@ -170,10 +121,6 @@ SUPPORTED_PLATFORMS["10.11"] = [
     "amd64-opensuse-1506",
     "amd64-sles-1506",
     "amd64-ubuntu-2404",
-    "ppc64le-ubuntu-2404",
-    "s390x-sles-1506",
-    "s390x-ubuntu-2404",
-    "ppc64le-debian-12",
 ]
 SUPPORTED_PLATFORMS["10.11"] += SUPPORTED_PLATFORMS["10.10"]
 
@@ -183,12 +130,8 @@ SUPPORTED_PLATFORMS["11.2"] = SUPPORTED_PLATFORMS["11.1"].copy()
 SUPPORTED_PLATFORMS["11.3"] = SUPPORTED_PLATFORMS["11.2"].copy()
 SUPPORTED_PLATFORMS["11.4"] = SUPPORTED_PLATFORMS["11.3"].copy()
 SUPPORTED_PLATFORMS["11.4"] += [
-    "aarch64-debian-sid",
-    "aarch64-ubuntu-2410",
     "amd64-debian-sid",
     "amd64-ubuntu-2410",
-    "ppc64le-debian-sid",
-    "x86-debian-sid",
 ]
 SUPPORTED_PLATFORMS["11.5"] = SUPPORTED_PLATFORMS["11.4"].copy()
 SUPPORTED_PLATFORMS["11.6"] = SUPPORTED_PLATFORMS["11.5"].copy()

@@ -1,0 +1,25 @@
+[ req ]
+default_bits        = 2048
+default_keyfile     = privkey.pem
+distinguished_name  = req_distinguished_name
+req_extensions      = v3_req
+x509_extensions     = v3_ext
+string_mask         = utf8only
+
+[ req_distinguished_name ]
+commonName          = buildbot.local.mariadb.org
+commonName_max      = 64
+
+[ v3_req ]
+keyUsage            = critical, digitalSignature, keyEncipherment
+extendedKeyUsage    = serverAuth, clientAuth
+subjectAltName      = @alt_names
+
+[ v3_ext ]
+keyUsage            = critical, digitalSignature, keyEncipherment
+extendedKeyUsage    = serverAuth, clientAuth
+subjectAltName      = @alt_names
+
+[ alt_names ]
+DNS.1 = buildbot.local.mariadb.org
+DNS.2 = ci.local.mariadb.org

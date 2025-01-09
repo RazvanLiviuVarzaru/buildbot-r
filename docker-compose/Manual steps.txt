@@ -1,0 +1,27 @@
+1. Configure Docker daemon for remote access: https://docs.docker.com/engine/daemon/remote-access/
+2. Configure directories for CI. Populate helper_files && create symlink for master
+    Example
+    ---------
+    root@noops:/srv/buildbot# 
+    drwxr-xr-x 2 razvan razvan 4096 Jan  9 14:59 galera_packages
+    drwxr-xr-x 2 razvan razvan 4096 Jan  9 14:59 helper_files
+    lrwxrwxrwx 1 root   root     35 Jan  8 16:30 master -> /home/razvan/Documents/Git/buildbot
+    drwxr-xr-x 2 razvan razvan 4096 Jan  9 14:59 packages
+
+
+3. Other required folders in GIT repository root
+    master-credential-provider in /home/razvan/Documents/Git/buildbot
+
+4. Generate certs
+    in repo_path/docker-compose/certbot/ssl
+        create openssl.cnf with 2 SAN's ci.local.mariadb.org / buildbot.local.mariadb.org
+        openssl req -x509 -nodes -days 365 -newkey rsa:2048 -keyout privkey.pem -out fullchain.pem -config openssl.cnf
+
+5. Add /etc/hosts entries for local DNS's -> 127.0.0.1
+
+6. docker compose --env-file .env.local up -d
+
+7. Proxy GitHub WebHook: https://docs.github.com/en/webhooks/testing-and-troubleshooting-webhooks/testing-webhooks
+
+    export NODE_EXTRA_CA_CERTS=/home/razvan/Documents/Git/buildbot-r/docker-compose/certbot/ssl/fullchain.pem
+    smee --url https://smee.io/TY005Hzf4P0LGfb --target http://localhost:8010/change_hook/github --port 8010
