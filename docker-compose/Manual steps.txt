@@ -3,10 +3,13 @@
     Example
     ---------
     root@noops:/srv/buildbot# 
+    drwxr-xr-x 2 razvan razvan 4096 Jan  9 20:41 ccache
+    drwxr-xr-x 2 root   root   4096 Jan  9 15:25 cloud-init
     drwxr-xr-x 2 razvan razvan 4096 Jan  9 14:59 galera_packages
     drwxr-xr-x 2 razvan razvan 4096 Jan  9 14:59 helper_files
     lrwxrwxrwx 1 root   root     35 Jan  8 16:30 master -> /home/razvan/Documents/Git/buildbot
-    drwxr-xr-x 2 razvan razvan 4096 Jan  9 14:59 packages
+    drwxr-xr-x 3 razvan razvan 4096 Jan  9 20:41 packages
+
 
 
 3. Other required folders in GIT repository root
@@ -17,7 +20,7 @@
         create openssl.cnf with 2 SAN's ci.local.mariadb.org / buildbot.local.mariadb.org
         openssl req -x509 -nodes -days 365 -newkey rsa:2048 -keyout privkey.pem -out fullchain.pem -config openssl.cnf
 
-5. Add /etc/hosts entries for local DNS's -> 127.0.0.1
+5. Add /etc/hosts entries for local DNS's -> YOUR IP ON LAN
 
 6. docker compose --env-file .env.local up -d
 
