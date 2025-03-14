@@ -62,7 +62,7 @@ class BaseBuilder:
     ) -> util.BuilderConfig:
         return util.BuilderConfig(
             name=self.name,
-            workernames=[worker.name for worker in workers],
+            workernames=workers,
             tags=tags,
             nextBuild=next_build,
             canStartBuild=can_start_build,
