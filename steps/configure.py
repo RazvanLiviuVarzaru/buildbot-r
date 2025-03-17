@@ -1,6 +1,6 @@
 from buildbot import interfaces, steps
 
-from .base import Command
+from .base_step import Command
 from .cmake.options import CMakeOption, BuildType, CMAKE
 from .cmake.compilers import CompilerCommand
 from .cmake.generator import CMakeGenerator

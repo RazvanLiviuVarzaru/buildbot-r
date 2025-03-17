@@ -1,7 +1,4 @@
-from abc import abstractmethod
-
-
-class WorkerBase: # <1>
+class WorkerBase:
     def __init__(self, name, properties):
         self.name = name
         self.properties = properties

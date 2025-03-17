@@ -8,7 +8,7 @@ from buildbot.process.buildrequest import BuildRequest
 from buildbot.process.workerforbuilder import AbstractWorkerForBuilder
 from buildbot.plugins import util
 
-from workers.base import BaseWorker
+from workers.base import WorkerBase
 
 
 class BuildSequence(ABC):
@@ -54,7 +54,7 @@ class BaseBuilder:
 
     def get_config(
         self,
-        workers: Iterable[BaseWorker],
+        workers: Iterable[WorkerBase],
         can_start_build: Callable[
             [Builder, AbstractWorkerForBuilder, BuildRequest], bool],
         next_build: Callable[[Builder, Iterable[BuildRequest]], BuildRequest],
@@ -67,4 +67,18 @@ class BaseBuilder:
             nextBuild=next_build,
             canStartBuild=can_start_build,
             factory=self.get_factory()
+        )
+
+
+class Builder(BaseBuilder):
+    def __init__(self, name, sequences, workerpool, can_start_build, next_build, tags):
+        super().__init__(name)
+        for sequence in sequences:
+            self.add_sequence(sequence)
+
+        super().get_config(
+            workers=workerpool,
+            can_start_build=can_start_build,
+            next_build=next_build,
+            tags=tags
         )

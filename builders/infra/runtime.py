@@ -4,7 +4,7 @@ from pathlib import Path
 
 from buildbot.interfaces import IBuildStep
 from buildbot.plugins import steps, util
-from steps.base import Command
+from steps.base_step import Command
 from builders.base import BuildSequence
 
 
@@ -22,6 +22,18 @@ class FetchContainerImage(steps.ShellCommand):
         self.config = config
         super().__init__(name=f"Fetch Container Image - {config.image_tag}",
                          command=['docker', 'pull', config.image_tag])
+        
+class CreateContainerVolume(steps.ShellCommand):
+    def __init__(self, config: DockerConfig):
+        self.config = config
+        super().__init__(name=f"Create Container Volume",
+                         command=['docker', 'volume', 'create', util.Interpolate('test')])
+
+class RemoveContainerVolume(steps.ShellCommand):
+    def __init__(self, config: DockerConfig):
+        self.config = config
+        super().__init__(name=f"Create Container Volume",
+                         command=['docker', 'volume', 'rm', util.Interpolate('test')])
 
 
 class RunInContainer:
@@ -30,7 +42,6 @@ class RunInContainer:
                  commands: list[Command]):
         self.config = container_config
         self.commands = commands
-        print(commands)
 
     def generate(self) -> list[IBuildStep]:
         result = []
@@ -47,17 +58,16 @@ class RunInContainer:
                                        f'chown -R 1000:1000 {subst_str};',
                                        *folders))
             ]
-
         for command in self.commands:
             r_command = [
                 'docker',
                 'run',
                 '--rm',
             ]
-            for src, dst, flags in self.config.volume_mounts:
+            for src, dst, type in self.config.volume_mounts:
                 r_command += [
                     '--mount',
-                    util.Interpolate('type=bind,src=%s,dst=%s,bind-propagation=rshared', src, dst)
+                    util.Interpolate(f'type={type},src={src},dst={dst}')
                 ]
             # TODO value quoting
             r_command += [
@@ -82,15 +92,34 @@ class RunInContainer:
 
 class InContainerBuildSequence(BuildSequence):
     def __init__(self, steps: list[Command], config: DockerConfig):
+        if not isinstance(config, DockerConfig):
+            raise TypeError("Config must be an instance of DockerConfig")
         self.config = config
         self.steps = steps
 
     def get_prepare_steps(self) -> Iterable[IBuildStep]:
-        return [FetchContainerImage(self.config)]
+        return [FetchContainerImage(self.config), CreateContainerVolume(self.config)]
 
     def get_active_steps(self) -> Iterable[IBuildStep]:
         return RunInContainer(container_config=self.config,
-                              commands=steps).generate()
+                              commands=self.steps).generate()
 
     def get_cleanup_steps(self) -> Iterable[IBuildStep]:
-        return []
+        return [RemoveContainerVolume(self.config)]
+    
+
+class OnMasterBuildSequence(BuildSequence): # Steps like: Run Command on Master, setProperty, Trigger another builder
+    def get_prepare_steps(self):
+        pass
+    def get_active_steps(self):
+        pass
+    def get_cleanup_steps(self):
+        pass
+
+class OnWorkerBuildSequence(BuildSequence): # for example docker-library builder or other non-latent builder(windows,aix,macos,etc)
+    def get_prepare_steps(self):
+        pass
+    def get_active_steps(self):
+        pass
+    def get_cleanup_steps(self):
+        pass

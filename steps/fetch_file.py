@@ -1,5 +1,5 @@
 from buildbot.plugins import util
-from .base import Command
+from .base_step import Command
 
 
 class FetchTarball(Command):
