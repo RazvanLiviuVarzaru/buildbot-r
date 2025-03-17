@@ -34,7 +34,14 @@ class RemoveContainerVolume(steps.ShellCommand):
         self.config = config
         super().__init__(name=f"Create Container Volume",
                          command=['docker', 'volume', 'rm', util.Interpolate('test')])
+        
+class RunOnMaster:
+    def __init__(self, steps: list[IBuildStep]):
+        self.steps = steps
 
+    def generate(self) -> list[IBuildStep]:
+        return self.steps
+    
 
 class RunInContainer:
     def __init__(self,
@@ -109,12 +116,14 @@ class InContainerBuildSequence(BuildSequence):
     
 
 class OnMasterBuildSequence(BuildSequence): # Steps like: Run Command on Master, setProperty, Trigger another builder
+    def __init__(self, steps: list[IBuildStep]):
+        self.steps = steps
     def get_prepare_steps(self):
-        pass
+        return []
     def get_active_steps(self):
-        pass
+        return RunOnMaster(self.steps).generate()
     def get_cleanup_steps(self):
-        pass
+        return []
 
 class OnWorkerBuildSequence(BuildSequence): # for example docker-library builder or other non-latent builder(windows,aix,macos,etc)
     def get_prepare_steps(self):

@@ -59,6 +59,7 @@ class BaseBuilder:
             [Builder, AbstractWorkerForBuilder, BuildRequest], bool],
         next_build: Callable[[Builder, Iterable[BuildRequest]], BuildRequest],
         tags: list[str] = [],
+        properties: dict[str, str] = {}
     ) -> util.BuilderConfig:
         return util.BuilderConfig(
             name=self.name,
@@ -66,19 +67,24 @@ class BaseBuilder:
             tags=tags,
             nextBuild=next_build,
             canStartBuild=can_start_build,
-            factory=self.get_factory()
+            factory=self.get_factory(),
+            properties = properties
         )
 
 
 class Builder(BaseBuilder):
-    def __init__(self, name, sequences, workerpool, can_start_build, next_build, tags):
+    def __init__(self, name, sequences, workerpool, can_start_build, next_build, tags, properties):
         super().__init__(name)
         for sequence in sequences:
             self.add_sequence(sequence)
 
-        super().get_config(
+        self.config = super().get_config(
             workers=workerpool,
             can_start_build=can_start_build,
             next_build=next_build,
-            tags=tags
+            tags=tags,
+            properties=properties
         )
+
+    def get_config(self):
+        return self.config
