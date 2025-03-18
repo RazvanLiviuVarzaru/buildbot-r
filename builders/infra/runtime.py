@@ -20,20 +20,23 @@ class DockerConfig:
 class FetchContainerImage(steps.ShellCommand):
     def __init__(self, config: DockerConfig):
         self.config = config
-        super().__init__(name=f"Fetch Container Image - {config.image_tag}",
-                         command=['docker', 'pull', config.image_tag])
+        super().__init__(name=f"Fetch Container Image",
+                         command=['docker', 'pull', config.image_tag],
+                         haltOnFailure=True)
         
 class CreateContainerVolume(steps.ShellCommand):
     def __init__(self, config: DockerConfig):
         self.config = config
         super().__init__(name=f"Create Container Volume",
-                         command=['docker', 'volume', 'create', util.Interpolate('test')])
+                         command=['docker', 'volume', 'create', util.Interpolate('%(prop:buildername)s-%(prop:buildnumber)s')],
+                         haltOnFailure=True)
 
 class RemoveContainerVolume(steps.ShellCommand):
     def __init__(self, config: DockerConfig):
         self.config = config
-        super().__init__(name=f"Create Container Volume",
-                         command=['docker', 'volume', 'rm', util.Interpolate('test')])
+        super().__init__(name=f"Remove Container Volume",
+                         command=['docker', 'volume', 'rm', util.Interpolate('%(prop:buildername)s-%(prop:buildnumber)s')],
+                         alwaysRun=True)
         
 class RunOnMaster:
     def __init__(self, steps: list[IBuildStep]):
@@ -56,15 +59,15 @@ class RunInContainer:
         for src, _, _ in self.config.volume_mounts:
             folders.append(src)
         if folders:
-            subst_str = '%s ' * len(folders)
+            # subst_str = '%s ' * len(folders)
             folders = folders * 2
-            result += [
-                steps.ShellCommand(name='Prepare environment',
-                                   command=util.Interpolate(
-                                       f'mkdir -p {subst_str} && '
-                                       f'chown -R 1000:1000 {subst_str};',
-                                       *folders))
-            ]
+            # result += [
+            #     steps.ShellCommand(name='Prepare environment',
+            #                        command=util.Interpolate(
+            #                            f'mkdir -p {subst_str} && '
+            #                            f'chown -R 1000:1000 {subst_str};',
+            #                            *folders))
+            # ]
         for command in self.commands:
             r_command = [
                 'docker',
@@ -92,8 +95,11 @@ class RunInContainer:
             print(r_command)
             print(command.name)
 
-            result.append(steps.ShellCommand(name=command.name,
-                                             command=r_command))
+            result.append(steps.ShellCommand(
+                                             name=command.name,
+                                             command=r_command,
+                                             **command.options,
+                                             ),)
         return result
 
 

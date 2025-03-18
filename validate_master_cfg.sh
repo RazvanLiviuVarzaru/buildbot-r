@@ -76,7 +76,8 @@ for dir in autogen/* \
   master-nonlatent \
   master-libvirt \
   master-protected-branches \
-  master-web; do
+  master-web \
+  master-migration; do
   echo "Checking $dir/master.cfg"
   $RUNC run -i -v "$(pwd):/srv/buildbot/master" \
     --env PORT=1234 \

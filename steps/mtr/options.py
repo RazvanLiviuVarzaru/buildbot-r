@@ -1,7 +1,17 @@
 from dataclasses import dataclass
-from enum import StrEnum
+
 
 from ..base.options import Option
+
+try:
+    # breaking change introduced in python 3.11
+    from enum import StrEnum
+except ImportError:  # pragma: no cover
+    from enum import Enum  # pragma: no cover
+
+    class StrEnum(str, Enum):  # pragma: no cover
+        pass  # pragma: no cover
+
 
 
 class MTR(StrEnum):

@@ -5,24 +5,26 @@ from steps.cmake.options import CMAKE, BuildType, CMakeOption
 from steps.configure import ConfigureMariaDBCMake
 from steps.compile import CompileMakeCommand, CompileRpmAutobakeStep
 from steps.fetch_file import FetchTarball
+from steps.base_step import CommandOptions
 
 def rpm_autobake(config):
     return InContainerBuildSequence(
                 config=config,
                 steps=[
-                    FetchTarball('https://ci.mariadb.org', "here"),
-                    ConfigureMariaDBCMake(
-                        'Debug Build',
-                        cmake_generator=CMakeGenerator(flags=[]),
-                        # cmake_generator=CMakeGenerator(
-                        #     compiler=GCCCompiler(),
-                        #     use_ccache=True,
-                        #     flags=[
-                        #         CMakeOption(CMAKE.BUILD_TYPE, BuildType.DEBUG),
-                        #     ]),
-                    ),
-                    CompileMakeCommand(verbose=True, include_package=True),
-                    CompileRpmAutobakeStep()
+                    # FetchTarball('https://ci.mariadb.org', "here"),
+                    # ConfigureMariaDBCMake(
+                    #     'Debug Build',
+                    #     cmake_generator=CMakeGenerator(flags=[]),
+                    #     # cmake_generator=CMakeGenerator(
+                    #     #     compiler=GCCCompiler(),
+                    #     #     use_ccache=True,
+                    #     #     flags=[
+                    #     #         CMakeOption(CMAKE.BUILD_TYPE, BuildType.DEBUG),
+                    #     #     ]),
+                    # ),
+                    # CompileMakeCommand(verbose=True, include_package=True),
+                    CompileRpmAutobakeStep(options=CommandOptions(haltOnFailure=False)),
+                    CompileRpmAutobakeStep(options=CommandOptions(haltOnFailure=False)),
                     # MTR Step
                     # MTRTest(type=MTRTest.Normal),
                     # MTRTest(type=MTRTest.Galera),

@@ -1,6 +1,6 @@
 from buildbot.plugins import util
 
-from .base_step import Command
+from .base_step import Command, CommandOptions
 
 
 class CompileMakeCommand(Command):
@@ -41,9 +41,9 @@ class CompileDebAutobakeStep(Command):
         ...
 
 class CompileRpmAutobakeStep(Command):
-    def __init__(self,workdir: str = ''):
+    def __init__(self,options: CommandOptions,workdir: str = '', ):
         name = 'Compile - package - source package'
-        super().__init__(name=name, workdir=workdir)
+        super().__init__(name=name, workdir=workdir, options=options)
 
     def as_cmd_arg(self) -> list[str]:
         # result = [
@@ -71,7 +71,7 @@ class CompileRpmAutobakeStep(Command):
             if [ 1 -eq 1 ]; then
                 touch ceva.txt
             fi
-            export PATH=/usr/lib/ccache:/usr/lib64/ccache:$PATH && touch test.txt && sleep 1000
+            export PATH=/usr/lib/ccache:/usr/lib64/ccache:$PATH && touch test.txt && touch /packages/test2.txt
         """,
                     jobs=util.Property("jobs", default="$(getconf _NPROCESSORS_ONLN)"),
                 ),

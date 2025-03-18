@@ -13,7 +13,7 @@ def canStartBuild(
     builder: Builder, wfb: AbstractWorkerForBuilder, request: BuildRequest
 ) -> bool:
     reserved_jobs = 0
-    total_worker_jobs = wfb.worker.properties["total_worker_jobs"] # This property (config-time) must exist at worker level
+    total_worker_jobs = wfb.worker.properties["total_jobs"] # This property (config-time) must exist at worker level
     current_builder_job_claim = builder.config.properties["jobs"]
 
     if current_builder_job_claim > total_worker_jobs:

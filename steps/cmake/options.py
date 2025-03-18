@@ -1,6 +1,18 @@
-from enum import StrEnum
+
 
 from ..base.generator import Option
+from typing import Union
+
+
+
+try:
+    # breaking change introduced in python 3.11
+    from enum import StrEnum
+except ImportError:  # pragma: no cover
+    from enum import Enum  # pragma: no cover
+
+    class StrEnum(str, Enum):  # pragma: no cover
+        pass  # pragma: no cover
 
 
 # Flag names use UPPER_CASE
@@ -91,7 +103,7 @@ class CMakeOption(Option):
     Represents a CMake option in the form `-D<name>=<value>`.
     """
 
-    def __init__(self, name: StrEnum, value: str | bool):
+    def __init__(self, name: StrEnum, value: Union[str, bool]):
         if isinstance(value, bool):
             value = "ON" if value else "OFF"
         super().__init__(name, value)
