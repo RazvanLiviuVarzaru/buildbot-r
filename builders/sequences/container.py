@@ -3,7 +3,7 @@ from steps.cmake.compilers import GCCCompiler
 from steps.cmake.generator import CMakeGenerator
 from steps.cmake.options import CMAKE, BuildType, CMakeOption
 from steps.configure import ConfigureMariaDBCMake
-from steps.compile import CompileMakeCommand
+from steps.compile import CompileMakeCommand, CompileRpmAutobakeStep
 from steps.fetch_file import FetchTarball
 
 def rpm_autobake(config):
@@ -22,6 +22,7 @@ def rpm_autobake(config):
                         #     ]),
                     ),
                     CompileMakeCommand(verbose=True, include_package=True),
+                    CompileRpmAutobakeStep()
                     # MTR Step
                     # MTRTest(type=MTRTest.Normal),
                     # MTRTest(type=MTRTest.Galera),
