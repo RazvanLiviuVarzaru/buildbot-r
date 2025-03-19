@@ -62,18 +62,54 @@ class CompileRpmAutobakeStep(Command):
         #         ),
         # ]
 
+        # result = [
+        #     'sh',
+        #     '-xc'
+        #     ,util.Interpolate(
+        #             """
+        #     asdasdas 1000 && mkdir -p rpms srpms
+        #     if [ 1 -eq 1 ]; then
+        #         touch ceva.txt
+        #     fi
+        #     export PATH=/usr/lib/ccache:/usr/lib64/ccache:$PATH && touch test.txt && touch /packages/test2.txt && sleep 1000
+        # """,
+        #             jobs=util.Property("jobs", default="$(getconf _NPROCESSORS_ONLN)"),
+        #         ),
+        # ]
+        # result = [
+        #     'sh',
+        #     '-xc'
+        #     ,util.Interpolate(
+        #             """
+        #         # Handle SIGTERM and wait 20 seconds before shutting down
+        #         trap 'sleep 20; exit 0' SIGTERM
+
+        #         echo "Process started. It will respond to SIGTERM and wait 20 seconds before shutting down."
+
+        #         # Simulate a long-running process
+        #         while true; do
+        #             sleep 1
+        #         done
+        # """,
+        #             jobs=util.Property("jobs", default="$(getconf _NPROCESSORS_ONLN)"),
+        #         ),
+        # ]
+        # return result
+
         result = [
             'sh',
             '-xc'
             ,util.Interpolate(
                     """
-            mkdir -p rpms srpms
-            if [ 1 -eq 1 ]; then
-                touch ceva.txt
-            fi
-            export PATH=/usr/lib/ccache:/usr/lib64/ccache:$PATH && touch test.txt && touch /packages/test2.txt
+                echo $ARTIFACTS_URL && sleep 1000 && cmake . && make -j 7 package
         """,
                     jobs=util.Property("jobs", default="$(getconf _NPROCESSORS_ONLN)"),
                 ),
         ]
         return result
+    
+
+# Ignore SIGTERM signal
+
+
+

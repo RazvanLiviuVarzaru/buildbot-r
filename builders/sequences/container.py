@@ -2,29 +2,19 @@ from builders.infra.runtime import InContainerBuildSequence
 from steps.cmake.compilers import GCCCompiler
 from steps.cmake.generator import CMakeGenerator
 from steps.cmake.options import CMAKE, BuildType, CMakeOption
-from steps.configure import ConfigureMariaDBCMake
+from steps.configure import ConfigureMariaDBCMake, ConfigureRpmAutoBakeCMake
 from steps.compile import CompileMakeCommand, CompileRpmAutobakeStep
-from steps.fetch_file import FetchTarball
+from steps.fetch_file import UnpackTarball
 from steps.base_step import CommandOptions
 
 def rpm_autobake(config):
     return InContainerBuildSequence(
                 config=config,
                 steps=[
-                    # FetchTarball('https://ci.mariadb.org', "here"),
-                    # ConfigureMariaDBCMake(
-                    #     'Debug Build',
-                    #     cmake_generator=CMakeGenerator(flags=[]),
-                    #     # cmake_generator=CMakeGenerator(
-                    #     #     compiler=GCCCompiler(),
-                    #     #     use_ccache=True,
-                    #     #     flags=[
-                    #     #         CMakeOption(CMAKE.BUILD_TYPE, BuildType.DEBUG),
-                    #     #     ]),
-                    # ),
-                    # CompileMakeCommand(verbose=True, include_package=True),
-                    CompileRpmAutobakeStep(options=CommandOptions(haltOnFailure=False)),
-                    CompileRpmAutobakeStep(options=CommandOptions(haltOnFailure=False)),
+                    UnpackTarball(workdir="padding_for_CPACK_RPM_BUILD_SOURCE_DIRS_PREFIX", options=CommandOptions(haltOnFailure=True)),
+                    ConfigureRpmAutoBakeCMake(workdir="padding_for_CPACK_RPM_BUILD_SOURCE_DIRS_PREFIX",options=CommandOptions(haltOnFailure=True, doStepIf=lambda _: True)),
+                    # CompileRpmAutobakeStep(options=CommandOptions(haltOnFailure=True, doStepIf=lambda _: True), workdir="ceva/test"),
+                    # CompileRpmAutobakeStep(options=CommandOptions(haltOnFailure=True, doStepIf=lambda _: True), workdir="altceva/test"),
                     # MTR Step
                     # MTRTest(type=MTRTest.Normal),
                     # MTRTest(type=MTRTest.Galera),

@@ -1,16 +1,17 @@
 from buildbot.plugins import util
-from .base_step import Command
+from .base_step import Command, CommandOptions
+from utils import read_template
 
-
-class FetchTarball(Command):
-    def __init__(self, url: str, workdir: str):
+class UnpackTarball(Command):
+    def __init__(self, workdir: str, options: CommandOptions):
         super().__init__(name='Fetch Source Tarball',
-                         workdir=workdir)
-        self.name = 'Fetch Source Tarball'
-        self.url = url
+                         workdir=workdir,
+                         options=options)
+        self.name = 'Unpack Source Tarball'
 
     def as_cmd_arg(self) -> list[str]:
         return [
-            'wget',
-            util.Interpolate(f'{self.url}/%(prop:tarbuildnum)s'),
+            'bash',
+            '-ec',
+            util.Interpolate(read_template("get_tarball")),
         ]

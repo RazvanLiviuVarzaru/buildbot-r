@@ -7,11 +7,12 @@ class CommandOptions: # all step (shell, compile, etc) types support these optio
     # Default : safety first
     alwaysRun: bool = False
     haltOnFailure: bool = True
+    doStepIf: callable = lambda _: True
 
     @property
     def options(self):
-        Options = namedtuple('Options', ['alwaysRun', 'haltOnFailure'])
-        return Options(self.alwaysRun, self.haltOnFailure)._asdict()
+        Options = namedtuple('Options', ['alwaysRun', 'haltOnFailure', 'doStepIf'])
+        return Options(self.alwaysRun, self.haltOnFailure, self.doStepIf)._asdict()
 
 
 class Command(ABC):

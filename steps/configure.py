@@ -1,6 +1,7 @@
 from buildbot import interfaces, steps
+from buildbot.plugins import util
 
-from .base_step import Command
+from .base_step import Command, CommandOptions
 from .cmake.options import CMakeOption, BuildType, CMAKE
 from .cmake.compilers import CompilerCommand
 from .cmake.generator import CMakeGenerator
@@ -31,3 +32,25 @@ def simple_debug_conf(compiler: CompilerCommand = None,
                 CMakeOption(CMAKE.BUILD_TYPE, BuildType.DEBUG),
             ]),
         workdir=workdir)
+
+class ConfigureRpmAutoBakeCMake(Command):
+    def __init__(self,options: CommandOptions,workdir: str = '', ):
+        name = 'Configure'
+        super().__init__(name=name, workdir=workdir, options=options)
+
+    def as_cmd_arg(self) -> list[str]:
+        result = [
+            'bash',
+            '-ec'
+            ,util.Interpolate(
+                    """
+                    export PATH=/usr/lib/ccache:/usr/lib64/ccache:$PATH && cmake . \\
+                        -DBUILD_CONFIG=mysql_release \\
+                        -DRPM=%(prop:rpm_type)s \\
+                        -DCMAKE_C_COMPILER_LAUNCHER=ccache \\
+                        -DCMAKE_CXX_COMPILER_LAUNCHER=ccache
+                    """,
+                    jobs=util.Property("jobs", default="$(getconf _NPROCESSORS_ONLN)"),
+                ),
+        ]
+        return result
