@@ -33,13 +33,6 @@ class FetchContainerImage(steps.ShellCommand):
                          command=['docker', 'pull', config.image_tag],
                          haltOnFailure=True)
         
-
-class CreateContainerVolume(steps.ShellCommand):
-    def __init__(self):
-        super().__init__(name=f"Create Container Volume",
-                         command=['docker', 'volume', 'create', util.Interpolate('%(prop:buildername)s')],
-                         haltOnFailure=True)
-        
 class RunOnMaster:
     def __init__(self, steps: list[IBuildStep]):
         self.steps = steps
@@ -76,7 +69,7 @@ class RunInContainer:
                 'docker',
                 'run',
                 '--rm',
-                # '-u', 'root',
+                # '-u', 'root', # TODO (razvan) add possibility to specify user
                 '--init', # Run an init inside the container that forwards signals and reaps processes. Fixes signal handling when stopping a build (GUI << stop >> or buildmaster shutdown)
                 '--name',
                 util.Interpolate(f'%(prop:buildername)s'),
@@ -120,7 +113,7 @@ class InContainerBuildSequence(BuildSequence):
         self.steps = steps
 
     def get_prepare_steps(self) -> Iterable[IBuildStep]:
-        return [CleanupDockerResources(name="previous"),FetchContainerImage(self.config), CreateContainerVolume()]
+        return [CleanupDockerResources(name="previous"),FetchContainerImage(self.config)]
 
     def get_active_steps(self) -> Iterable[IBuildStep]:
         return RunInContainer(container_config=self.config,
