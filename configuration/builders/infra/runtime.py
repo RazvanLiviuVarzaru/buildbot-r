@@ -4,8 +4,8 @@ from pathlib import Path
 
 from buildbot.interfaces import IBuildStep
 from buildbot.plugins import steps, util
-from steps.base_step import Command
-from builders.base import BuildSequence
+from configuration.steps.base import Command
+from configuration.builders.base import BuildSequence
 
 
 @dataclass
@@ -24,6 +24,7 @@ class CleanupDockerResources(steps.ShellCommand):
                              '-ec',
                             util.Interpolate(f'docker kill %(prop:buildername)s || true && docker volume rm %(prop:buildername)s || true')
                             ],
+                        alwaysRun=True,
                          )
 
 class FetchContainerImage(steps.ShellCommand):
@@ -73,6 +74,8 @@ class RunInContainer:
                 '--init', # Run an init inside the container that forwards signals and reaps processes. Fixes signal handling when stopping a build (GUI << stop >> or buildmaster shutdown)
                 '--name',
                 util.Interpolate(f'%(prop:buildername)s'),
+                '-u',
+                f'{command.user}'
             ]
             for src, dst, type in self.config.volume_mounts:
                 r_command += [
@@ -93,15 +96,23 @@ class RunInContainer:
             # r_command += ['dumb-init']
             r_command += command.as_cmd_arg()
 
-            print(r_command)
-            print(command.name)
+            # print(r_command)
+            # print(command.name)
 
-            result.append(steps.ShellCommand(
+            if command.as_build_property():
+                result.append(steps.SetPropertyFromCommand(
                                              name=command.name,
                                              command=r_command,
                                              interruptSignal="TERM", # init process does not respond to SIGKILL
                                              **command.options,
-                                             ),)
+                                             ))
+            else:
+                result.append(steps.ShellCommand(
+                                                name=command.name,
+                                                command=r_command,
+                                                interruptSignal="TERM", # init process does not respond to SIGKILL
+                                                **command.options,
+                                                ),)
         return result
 
 

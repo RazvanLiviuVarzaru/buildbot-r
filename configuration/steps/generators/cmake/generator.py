@@ -1,8 +1,8 @@
 from typing import Iterable
 
-from ..base.generator import BaseGenerator
-from .compilers import CompilerCommand
-from .options import CMAKE, OTHER, BuildConfig, CMakeOption
+from configuration.steps.generators.base.generator import BaseGenerator
+from configuration.steps.generators.cmake.compilers import CompilerCommand
+from configuration.steps.generators.cmake.options import CMAKE, OTHER, BuildConfig, CMakeOption
 
 
 class CMakeGenerator(BaseGenerator):

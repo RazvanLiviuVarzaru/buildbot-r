@@ -21,7 +21,11 @@ class Command(ABC):
         self.workdir = workdir
         assert isinstance(options, CommandOptions)
         self.options = options.options
+        self.user = 'buildbot' # All commands run as buildbot user by default
 
     @abstractmethod
     def as_cmd_arg(self) -> list[str]:
+        pass
+
+    def as_build_property(self):
         pass

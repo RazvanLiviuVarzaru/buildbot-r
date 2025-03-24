@@ -1,6 +1,6 @@
 
 
-from ..base.generator import Option
+from configuration.steps.generators.base.generator import Option
 from typing import Union
 
 

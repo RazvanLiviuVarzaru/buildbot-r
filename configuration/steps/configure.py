@@ -1,10 +1,10 @@
 from buildbot import interfaces, steps
 from buildbot.plugins import util
 
-from .base_step import Command, CommandOptions
-from .cmake.options import CMakeOption, BuildType, CMAKE
-from .cmake.compilers import CompilerCommand
-from .cmake.generator import CMakeGenerator
+from configuration.steps.base import Command, CommandOptions
+from configuration.steps.generators.cmake.options import CMakeOption, BuildType, CMAKE
+from configuration.steps.generators.cmake.compilers import CompilerCommand
+from configuration.steps.generators.cmake.generator import CMakeGenerator
 
 
 class ConfigureMariaDBCMake(Command):
@@ -34,8 +34,11 @@ def simple_debug_conf(compiler: CompilerCommand = None,
         workdir=workdir)
 
 class ConfigureRpmAutoBakeCMake(Command):
-    def __init__(self,options: CommandOptions,workdir: str = '', ):
-        name = 'Configure'
+    def __init__(self, rpm_type, options: CommandOptions = None,workdir: str = '', ):
+        name = 'MariaDB - Configure'
+        self.rpm_type = rpm_type
+        if options is None:
+            options = CommandOptions()
         super().__init__(name=name, workdir=workdir, options=options)
 
     def as_cmd_arg(self) -> list[str]:
@@ -43,10 +46,10 @@ class ConfigureRpmAutoBakeCMake(Command):
             'bash',
             '-ec'
             ,util.Interpolate(
-                    """
+                    f"""
                     export PATH=/usr/lib/ccache:/usr/lib64/ccache:$PATH && cmake . \\
                         -DBUILD_CONFIG=mysql_release \\
-                        -DRPM=%(prop:rpm_type)s \\
+                        -DRPM={self.rpm_type} \\
                         -DCMAKE_C_COMPILER_LAUNCHER=ccache \\
                         -DCMAKE_CXX_COMPILER_LAUNCHER=ccache
                     """,

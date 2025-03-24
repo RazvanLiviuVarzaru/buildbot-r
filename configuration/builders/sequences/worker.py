@@ -1,4 +1,4 @@
-from builders.infra.runtime import OnWorkerBuildSequence
+from configuration.builders.infra.runtime import OnWorkerBuildSequence
 
 def dockerlibrary():
     return OnWorkerBuildSequence()

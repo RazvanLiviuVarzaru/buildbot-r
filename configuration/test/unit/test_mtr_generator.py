@@ -1,7 +1,7 @@
 import unittest
 
-from steps.mtr.generator import MTRGenerator
-from steps.mtr.options import MTR, SUITE, MTROption, TestSuiteCollection
+from configuration.steps.generators.mtr.generator import MTRGenerator
+from configuration.steps.generators.mtr.options import MTR, SUITE, MTROption, TestSuiteCollection
 
 
 class TestMTRGenerator(unittest.TestCase):

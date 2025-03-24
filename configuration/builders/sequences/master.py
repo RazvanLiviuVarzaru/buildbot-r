@@ -1,6 +1,6 @@
 
-from builders.infra.runtime import OnMasterBuildSequence
-from steps.trigger import Install, Upgrade, DockerLibrary
+from configuration.builders.infra.runtime import OnMasterBuildSequence
+from configuration.steps.trigger import Install, Upgrade, DockerLibrary
 
 def set_property():
     return OnMasterBuildSequence()

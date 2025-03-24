@@ -1,7 +1,7 @@
 from dataclasses import dataclass
 
 
-from ..base.options import Option
+from configuration.steps.generators.base.options import Option
 
 try:
     # breaking change introduced in python 3.11
