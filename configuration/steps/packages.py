@@ -2,12 +2,20 @@ from buildbot.plugins import util
 
 from configuration.steps.base import Command, CommandOptions
 
+
 class CreateDebRepo:
     pass
 
+
 class CreateRpmRepo(Command):
-    def __init__(self, rpm_type, url, options: CommandOptions = None,workdir: str = '', ):
-        name = 'MariaDB - Create local RPM repository'
+    def __init__(
+        self,
+        rpm_type,
+        url,
+        options: CommandOptions = None,
+        workdir: str = "",
+    ):
+        name = "MariaDB - Create local RPM repository"
         if options is None:
             options = CommandOptions()
         super().__init__(name=name, workdir=workdir, options=options)
@@ -16,10 +24,10 @@ class CreateRpmRepo(Command):
 
     def as_cmd_arg(self) -> list[str]:
         result = [
-            'bash',
-            '-ec'
-            ,util.Interpolate(
-                    f"""
+            "bash",
+            "-ec",
+            util.Interpolate(
+                f"""
                 if [ -e MariaDB-shared-10.1.*.rpm ]; then
                 rm MariaDB-shared-10.1.*.rpm
                 fi
@@ -35,28 +43,35 @@ class CreateRpmRepo(Command):
                     echo "module_hotfixes = 1" >> MariaDB.repo
                 fi
                     """,
-                ),
+            ),
         ]
         return result
 
+
 class SaveRpmPackages(Command):
-    def __init__(self, rpm_type, url, options: CommandOptions = None,workdir: str = '', ):
-        name = 'MariaDB - Save RPM packages'
+    def __init__(
+        self,
+        rpm_type,
+        url,
+        options: CommandOptions = None,
+        workdir: str = "",
+    ):
+        name = "MariaDB - Save RPM packages"
         if options is None:
             options = CommandOptions()
         super().__init__(name=name, workdir=workdir, options=options)
 
     def as_cmd_arg(self) -> list[str]:
         result = [
-            'bash',
-            '-ec'
-            ,util.Interpolate(
-                    f"""
+            "bash",
+            "-ec",
+            util.Interpolate(
+                f"""
                 mkdir -p /packages/%(prop:tarbuildnum)s/%(prop:buildername)s &&
                 cp -r MariaDB.repo rpms srpms /packages/%(prop:tarbuildnum)s/%(prop:buildername)s/ &&
                 ln -sf %(prop:tarbuildnum)s/%(prop:buildername)s/MariaDB.repo /packages/%(prop:branch)s-latest-%(prop:buildername)s.repo &&
                 sync /packages/%(prop:tarbuildnum)s
                     """,
-                ),
+            ),
         ]
         return result

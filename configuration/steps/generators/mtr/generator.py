@@ -1,7 +1,11 @@
 from typing import Iterable
 
 from configuration.steps.generators.base.generator import BaseGenerator
-from configuration.steps.generators.mtr.options import MTR, MTROption, TestSuiteCollection
+from configuration.steps.generators.mtr.options import (
+    MTR,
+    MTROption,
+    TestSuiteCollection,
+)
 
 
 class MTRGenerator(BaseGenerator):

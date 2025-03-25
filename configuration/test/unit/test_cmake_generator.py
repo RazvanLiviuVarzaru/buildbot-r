@@ -3,7 +3,14 @@ import unittest
 from configuration.steps.generators.base.exceptions import DuplicateFlagException
 from configuration.steps.generators.cmake.compilers import CompilerCommand
 from configuration.steps.generators.cmake.generator import CMakeGenerator
-from configuration.steps.generators.cmake.options import CMAKE, PLUGIN, WITH, BuildConfig, BuildType, CMakeOption
+from configuration.steps.generators.cmake.options import (
+    CMAKE,
+    PLUGIN,
+    WITH,
+    BuildConfig,
+    BuildType,
+    CMakeOption,
+)
 
 
 class TestCMakeGenerator(unittest.TestCase):

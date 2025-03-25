@@ -1,12 +1,12 @@
-from typing import Iterable, Callable
 from abc import ABC, abstractmethod
+from typing import Callable, Iterable
 
 from buildbot.interfaces import IBuildStep
-from buildbot.process.factory import BuildFactory
+from buildbot.plugins import util
 from buildbot.process.builder import Builder
 from buildbot.process.buildrequest import BuildRequest
+from buildbot.process.factory import BuildFactory
 from buildbot.process.workerforbuilder import AbstractWorkerForBuilder
-from buildbot.plugins import util
 
 from workers.base import WorkerBase
 
@@ -15,19 +15,16 @@ class BuildSequence(ABC):
     # Steps that will be called at the beginning of the BaseBuilder's build
     # process.
     @abstractmethod
-    def get_prepare_steps(self) -> Iterable[IBuildStep]:
-        ...
+    def get_prepare_steps(self) -> Iterable[IBuildStep]: ...
 
     # Generate steps that will be called after *all* prepare steps for all
     # attached build sequences are called.
     @abstractmethod
-    def get_active_steps(self) -> Iterable[IBuildStep]:
-        ...
+    def get_active_steps(self) -> Iterable[IBuildStep]: ...
 
     # Steps that will be called at the end of the BaseBuilder's build process.
     @abstractmethod
-    def get_cleanup_steps(self) -> Iterable[IBuildStep]:
-        ...
+    def get_cleanup_steps(self) -> Iterable[IBuildStep]: ...
 
 
 class BaseBuilder:
@@ -56,10 +53,11 @@ class BaseBuilder:
         self,
         workers: Iterable[WorkerBase],
         can_start_build: Callable[
-            [Builder, AbstractWorkerForBuilder, BuildRequest], bool],
+            [Builder, AbstractWorkerForBuilder, BuildRequest], bool
+        ],
         next_build: Callable[[Builder, Iterable[BuildRequest]], BuildRequest],
         tags: list[str] = [],
-        properties: dict[str, str] = {}
+        properties: dict[str, str] = {},
     ) -> util.BuilderConfig:
         return util.BuilderConfig(
             name=self.name,
@@ -68,12 +66,14 @@ class BaseBuilder:
             nextBuild=next_build,
             canStartBuild=can_start_build,
             factory=self.get_factory(),
-            properties = properties
+            properties=properties,
         )
 
 
 class Builder(BaseBuilder):
-    def __init__(self, name, sequences, workerpool, can_start_build, next_build, tags, properties):
+    def __init__(
+        self, name, sequences, workerpool, can_start_build, next_build, tags, properties
+    ):
         super().__init__(name)
         for sequence in sequences:
             self.add_sequence(sequence)
@@ -83,7 +83,7 @@ class Builder(BaseBuilder):
             can_start_build=can_start_build,
             next_build=next_build,
             tags=tags,
-            properties=properties
+            properties=properties,
         )
 
     def get_config(self):

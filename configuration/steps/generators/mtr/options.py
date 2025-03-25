@@ -1,6 +1,5 @@
 from dataclasses import dataclass
 
-
 from configuration.steps.generators.base.options import Option
 
 try:
@@ -11,7 +10,6 @@ except ImportError:  # pragma: no cover
 
     class StrEnum(str, Enum):  # pragma: no cover
         pass  # pragma: no cover
-
 
 
 class MTR(StrEnum):

@@ -1,18 +1,24 @@
 from configuration.builders.infra.runtime import OnWorkerBuildSequence
 
+
 def dockerlibrary():
     return OnWorkerBuildSequence()
 
+
 def windows():
-     return OnWorkerBuildSequence()
+    return OnWorkerBuildSequence()
+
 
 def windows_packages():
-     return OnWorkerBuildSequence()
+    return OnWorkerBuildSequence()
+
 
 def macos():
-     return OnWorkerBuildSequence()
+    return OnWorkerBuildSequence()
+
 
 def freebsd():
-     return OnWorkerBuildSequence()
+    return OnWorkerBuildSequence()
+
 
 ### ... and so on

@@ -1,9 +1,6 @@
-
-
-from configuration.steps.generators.base.generator import Option
 from typing import Union
 
-
+from configuration.steps.generators.base.generator import Option
 
 try:
     # breaking change introduced in python 3.11
