@@ -34,7 +34,7 @@ class TestCases:
 
 class MTRTest(Command):
     def __init__(self,name: str,testcase: MTRGenerator,workdir: str = "mysql-test", options: CommandOptions = None):
-        name = f"MTR - {type}"
+        name = f"MTR - {name}"
         if options is None:
             options = CommandOptions()
         super().__init__(name=name, workdir=workdir, options=options)

@@ -15,9 +15,10 @@ class CompileMakeCommand(Command):
     def as_cmd_arg(self) -> list[str]:
         result = [
             "make",
-            f"VERBOSE={1 if self.verbose else 0}",
             util.Interpolate("-j%s", util.Property("jobs", default="33")),
         ]
+        if self.verbose:
+            result.insert(1, "VERBOSE=1") # VERBOSE=0 does not disable verbose output
         if self.include_package:
             result.append("package")
         return result
