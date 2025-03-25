@@ -4,11 +4,13 @@ from configuration.steps.base import Command, CommandOptions
 
 
 class CompileMakeCommand(Command):
-    def __init__(self, verbose: bool, include_package: bool, workdir: str = ""):
+    def __init__(self, verbose: bool = False, include_package: bool = False, workdir: str = "", options: CommandOptions = None):
         self.include_package = include_package
         self.verbose = verbose
+        if options is None:
+            options = CommandOptions()
         name = "Compile - package" if self.include_package else "Compile"
-        super().__init__(name=name, workdir=workdir)
+        super().__init__(name=name, workdir=workdir, options=options)
 
     def as_cmd_arg(self) -> list[str]:
         result = [

@@ -72,9 +72,8 @@ class TestCMakeGenerator(unittest.TestCase):
         """
         Test that set_compiler adds the correct flags.
         """
-        generator = CMakeGenerator(flags=[])
         compiler = CompilerCommand(cc="gcc", cxx="g++")
-        generator.set_compiler(compiler)
+        generator = CMakeGenerator(flags=[], compiler=compiler)
         command = generator.generate()
         self.assertEqual(
             command,
@@ -90,8 +89,7 @@ class TestCMakeGenerator(unittest.TestCase):
         """
         Test that use_ccache sets the correct flags.
         """
-        generator = CMakeGenerator(flags=[])
-        generator.use_ccache()
+        generator = CMakeGenerator(flags=[], use_ccache=True)
         command = generator.generate()
         self.assertEqual(
             command,

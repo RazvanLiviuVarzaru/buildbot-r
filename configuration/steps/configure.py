@@ -8,28 +8,14 @@ from configuration.steps.generators.cmake.options import CMAKE, BuildType, CMake
 
 
 class ConfigureMariaDBCMake(Command):
-    def __init__(self, name: str, cmake_generator: CMakeGenerator, workdir: str = ""):
+    def __init__(self, name: str, cmake_generator: CMakeGenerator, workdir: str = "", options: CommandOptions = None):
         self.cmake_generator = cmake_generator
-        super().__init__(name=f"Configure MariaDB Server - {name}", workdir=workdir)
+        if options is None:
+            options = CommandOptions()
+        super().__init__(name=f"Configure MariaDB Server - {name}", workdir=workdir, options=options)
 
     def as_cmd_arg(self) -> list[str]:
         return self.cmake_generator.generate()
-
-
-def simple_debug_conf(
-    compiler: CompilerCommand = None, use_ccache: bool = False, workdir: str = ""
-) -> ConfigureMariaDBCMake:
-    return ConfigureMariaDBCMake(
-        name="Debug Build",
-        cmake_generator=CMakeGenerator(
-            compiler=compiler,
-            use_ccache=use_ccache,
-            flags=[
-                CMakeOption(CMAKE.BUILD_TYPE, BuildType.DEBUG),
-            ],
-        ),
-        workdir=workdir,
-    )
 
 
 class ConfigureRpmAutoBakeCMake(Command):

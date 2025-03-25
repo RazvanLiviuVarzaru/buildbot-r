@@ -6,11 +6,7 @@ try:
     # breaking change introduced in python 3.11
     from enum import StrEnum
 except ImportError:  # pragma: no cover
-    from enum import Enum  # pragma: no cover
-
-    class StrEnum(str, Enum):  # pragma: no cover
-        pass  # pragma: no cover
-
+    from configuration.steps.generators.base.options import StrEnum
 
 class MTR(StrEnum):
     # This class is used for type safety and preventing typos. Instead of
@@ -35,6 +31,7 @@ class MTR(StrEnum):
     VERBOSE_RESTART = "verbose-restart"
     VIEW_PROTOCOL = "view-protocol"
     WITH_EMBEDDED = "embedded"
+    VARDIR = "vardir"
 
 
 # Extracted from ./mtr output manually before tests actually start.

@@ -8,8 +8,8 @@ except ImportError:  # pragma: no cover
     from enum import Enum  # pragma: no cover
 
     class StrEnum(str, Enum):  # pragma: no cover
-        pass  # pragma: no cover
-
+        def __str__(self):
+            return self.value
 
 class Option(ABC):
     @staticmethod
