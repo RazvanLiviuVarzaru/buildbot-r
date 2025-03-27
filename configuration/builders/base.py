@@ -37,15 +37,25 @@ class BaseBuilder:
 
     def get_factory(self) -> BuildFactory:
         factory = BuildFactory()
-        for seq in self.build_sequences:
-            factory.addSteps(seq.get_prepare_steps())
+        seen = set() # De-duplicate steps by name
 
+        # Preparation steps
+        for seq in self.build_sequences:
+            for step in seq.get_prepare_steps():
+                if step.name not in seen:
+                    factory.addStep(step)
+                    seen.add(step.name)
+
+        # Active steps
         for seq in self.build_sequences:
             factory.addSteps(seq.get_active_steps())
 
-        # Reverse cleanup, last in, first out.
+        # Cleanup steps, in reverse, last in, first out.
         for seq in reversed(self.build_sequences):
-            factory.addSteps(seq.get_cleanup_steps())
+            for step in seq.get_cleanup_steps():
+                if step.name not in seen:
+                    factory.addStep(step)
+                    seen.add(step.name)
 
         return factory
 

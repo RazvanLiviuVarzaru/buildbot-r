@@ -1,32 +1,37 @@
-from abc import ABC, abstractmethod
 from collections import namedtuple
 from dataclasses import dataclass
+from abc import ABC, abstractmethod
+from configuration.steps.commands.base import Command
 
 
 @dataclass
-class CommandOptions:  # all step (shell, compile, etc) types support these options
+class StepOptions:  # all step (shell, compile, etc) types support these options
     # Default : safety first
     alwaysRun: bool = False
     haltOnFailure: bool = True
     doStepIf: callable = lambda _: True
 
     @property
-    def options(self):
+    def getopt(self):
         Options = namedtuple("Options", ["alwaysRun", "haltOnFailure", "doStepIf"])
         return Options(self.alwaysRun, self.haltOnFailure, self.doStepIf)._asdict()
 
 
-class Command(ABC):
-    def __init__(self, name: str, workdir: str, options: CommandOptions):
+
+class BaseStep(ABC):
+    def __init__(self, name, options):
         self.name = name
-        self.workdir = workdir
-        assert isinstance(options, CommandOptions)
-        self.options = options.options
-        self.user = "buildbot"  # All commands run as buildbot user by default
+        if options is None:
+            self.options = StepOptions() # Load default options
+        else:
+            assert isinstance(options, StepOptions)
+            self.options = options
 
     @abstractmethod
-    def as_cmd_arg(self) -> list[str]:
-        pass
+    def generate(self):
+        ...
 
-    def as_build_property(self):
-        pass
+class PrefixableStep(BaseStep):
+    @abstractmethod
+    def add_cmd_prefix(self, command: Command):
+        ...

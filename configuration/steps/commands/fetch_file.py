@@ -1,18 +1,12 @@
-import os
-
 from buildbot.plugins import util
 
-from configuration.steps.base import Command, CommandOptions
+from configuration.steps.commands.base import Command
 from utils import read_template
 
 
 class UnpackTarball(Command):
-    def __init__(self, workdir: str, options: CommandOptions = None):
-        if options is None:
-            options = CommandOptions()
-        super().__init__(name="Fetch Source Tarball", workdir=workdir, options=options)
-        self.name = "Unpack Source Tarball"
-
+    def __init__(self, workdir: str):
+        super().__init__(name = "Download and unpack source tarball",workdir=workdir)
     def as_cmd_arg(self) -> list[str]:
         return [
             "bash",
@@ -20,7 +14,7 @@ class UnpackTarball(Command):
             util.Interpolate(read_template("get_tarball")),
         ]
 
-
+# TODO (Razvan) WIP
 class FetchCompat(Command):
     def __init__(
         self,
@@ -28,12 +22,9 @@ class FetchCompat(Command):
         rpm_type: str,
         arch: str,
         url: str,
-        options: CommandOptions = None,
     ):
-        if options is None:
-            options = CommandOptions()
         super().__init__(
-            name="Fetch MariaDB compat RPMs", workdir=workdir, options=options
+            name="Fetch MariaDB compat RPMs", workdir=workdir
         )
         self.rpm_type = rpm_type
         self.arch = arch

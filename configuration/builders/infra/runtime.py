@@ -6,11 +6,13 @@ from buildbot.interfaces import IBuildStep
 from buildbot.plugins import steps, util
 
 from configuration.builders.base import BuildSequence
-from configuration.steps.base import Command
-
+from configuration.steps.base import PrefixableStep
+from configuration.steps.commands.base import Command
+from typing import Union
 
 @dataclass
 class DockerConfig:
+    repository: str  # Repository where the container image is stored
     image_tag: str  # Image tag used to pull the container
     volume_mounts: list[tuple[Path, Path, str]]
     env_vars: list[tuple[str, str]]
@@ -58,8 +60,8 @@ class FetchContainerImage(steps.ShellCommand):
     def __init__(self, config: DockerConfig):
         self.config = config
         super().__init__(
-            name=f"Fetch Container Image",
-            command=["docker", "pull", config.image_tag],
+            name=f"Fetch Container Image - {config.image_tag}",
+            command=["docker", "pull", config.repository + config.image_tag],
             haltOnFailure=True,
         )
 
@@ -73,81 +75,55 @@ class RunOnMaster:
 
 
 class RunInContainer:
-    def __init__(self, container_config: DockerConfig, commands: list[Command]):
+    def __init__(self, container_config: DockerConfig, steps: list[PrefixableStep]):
         self.config = container_config
-        self.commands = commands
+        self.steps = steps
+        self.container_image = container_config.repository + container_config.image_tag
 
     def generate(self) -> list[IBuildStep]:
         result = []
         # If the workdir doesn't exist, -w option will create it under root, even if the container runs under a different user, causing permission issues.
         # Prepare all workdirs in the Volume before running any commands
         workdirs = []
-        for command in self.commands:
-            if command.workdir and command.workdir not in workdirs:
-                workdirs.append(command.workdir)
+        for step in self.steps:
+            print(step.command.workdir)
+            if step.command.workdir and step.command.workdir not in workdirs:
+                workdirs.append(step.command.workdir)
         if workdirs:
+            print('WOLOLOLO')
             result.append(
                 steps.ShellCommand(
-                    name="Prepare in container workdirs",
+                    name=f"Prepare in container ({self.config.image_tag}) workdirs",
                     command=util.Interpolate(
-                        f'docker run --rm --mount type=volume,src=%(prop:buildername)s,dst=/home/buildbot {self.config.image_tag} mkdir -p {" ".join(workdirs)}'
+                        f'docker run --rm --mount type=volume,src=%(prop:buildername)s,dst=/home/buildbot {self.container_image} mkdir -p {" ".join(workdirs)}'
                     ),
                     haltOnFailure=True,
                 )
             )
 
-        print(self.config.env_vars)
-
-        for command in self.commands:
-            r_command = [
+        for step in self.steps:
+            step.add_cmd_prefix([
                 "docker",
                 "run",
                 "--rm",
-                # '-u', 'root', # TODO (razvan) add possibility to specify user
                 "--init",  # Run an init inside the container that forwards signals and reaps processes. Fixes signal handling when stopping a build (GUI << stop >> or buildmaster shutdown)
                 "--name",
                 util.Interpolate(f"%(prop:buildername)s"),
                 "-u",
-                f"{command.user}",
-            ]
+                f"{step.command.user}",
+            ])
             for src, dst, type in self.config.volume_mounts:
-                r_command += [
+                step.add_cmd_prefix([
                     "--mount",
                     util.Interpolate(f"type={type},src={src},dst={dst}"),
-                ]
-            # Add environment variables
-            # TODO(Razvan) env[1] might need quoting
-            for env in self.config.env_vars:
-                r_command += ["-e", f"{env[0]}={env[1]}"]
+                ])
+            for env in self.config.env_vars:  # TODO(Razvan) env[1] might need quoting
+                step.add_cmd_prefix(["-e", f"{env[0]}={env[1]}"])
+            step.add_cmd_prefix([f"--shm-size={self.config.shm_size}"])
+            step.add_cmd_prefix(["-w", f"/home/buildbot/{step.command.workdir}"]) # TODO(cvicentiu) This workdir is hacky.
+            step.add_cmd_prefix([self.container_image])
+            result.append(step.generate())
 
-            r_command += [f"--shm-size={self.config.shm_size}"]
-            # TODO(cvicentiu) This workdir is hacky.
-            r_command += ["-w", f"/home/buildbot/{command.workdir}"]
-            r_command += [self.config.image_tag]
-            # r_command += ['dumb-init']
-            r_command += command.as_cmd_arg()
-
-            # print(r_command)
-            # print(command.name)
-
-            if command.as_build_property():
-                result.append(
-                    steps.SetPropertyFromCommand(
-                        name=command.name,
-                        command=r_command,
-                        interruptSignal="TERM",  # init process does not respond to SIGKILL
-                        **command.options,
-                    )
-                )
-            else:
-                result.append(
-                    steps.ShellCommand(
-                        name=command.name,
-                        command=r_command,
-                        interruptSignal="TERM",  # init process does not respond to SIGKILL
-                        **command.options,
-                    ),
-                )
         return result
 
 
@@ -160,18 +136,19 @@ class InContainerBuildSequence(BuildSequence):
 
     def get_prepare_steps(self) -> Iterable[IBuildStep]:
         return [
-            PrintEnvironmentDetails(),
+            PrintEnvironmentDetails(), # TODO (razvan) # nu trebuie sa ruleze de un trilion de ori per build seq
             CleanupDockerResources(name="previous"),
             FetchContainerImage(self.config),
         ]
 
     def get_active_steps(self) -> Iterable[IBuildStep]:
         return RunInContainer(
-            container_config=self.config, commands=self.steps
+            container_config=self.config, steps=self.steps
         ).generate()
 
     def get_cleanup_steps(self) -> Iterable[IBuildStep]:
         return [CleanupDockerResources(name="current")]
+        # return []
 
 
 class OnMasterBuildSequence(

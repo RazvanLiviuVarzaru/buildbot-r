@@ -52,6 +52,9 @@ class SUITE(StrEnum):
     FUNCS_1 = "funcs_1"
     FUNCS_2 = "funcs_2"
     FUNC_TEST = "func_test"
+    GALERA = "galera"
+    GALERA_3NODES = "galera_3nodes"
+    GALERA_3NODES_SR = "galera_3nodes_sr"
     GCOL = "gcol"
     HANDLER = "handler"
     HEAP = "heap"
@@ -95,7 +98,7 @@ class SUITE(StrEnum):
     USER_VARIABLES = "user_variables"
     VCOL = "vcol"
     VERSIONING = "versioning"
-
+    WSREP = "wsrep"
 
 @dataclass
 class TestSuiteCollection:
