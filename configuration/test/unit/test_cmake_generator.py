@@ -31,7 +31,7 @@ class TestCMakeGenerator(unittest.TestCase):
                 ".",
                 "-DCMAKE_BUILD_TYPE=RelWithDebInfo",
                 "-DCMAKE_INSTALL_PREFIX=/usr/local",
-                "-DPLUGIN_ARCHIVE=ON",
+                "-DPLUGIN_ARCHIVE=YES",
                 "-DWITH_ASAN=ON",
             ],
         )
