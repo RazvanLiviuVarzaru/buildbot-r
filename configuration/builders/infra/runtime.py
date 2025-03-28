@@ -8,20 +8,18 @@ from buildbot.plugins import steps, util
 from configuration.builders.base import BuildSequence
 from configuration.steps.base import PrefixableStep
 from configuration.steps.commands.base import Command
-from typing import Union
 import os
-import random
 
 @dataclass
 class DockerConfig:
-    repository: str  # Repository where the container image is stored
-    image_tag: str  # Image tag used to pull the container
+    repository: str  # e.g. quay/ghcr + org/repo
+    image_tag: str
     volume_mounts: list[tuple[Path, Path, str]]
     env_vars: list[tuple[str, str]]
     shm_size: str
     memlock_limit: int
     basedir: str
-    checkpoint: str = None
+    checkpoint: str = None # define when steps require a checkpoint
 
 
 class CleanupDockerResources(steps.ShellCommand):
@@ -88,7 +86,7 @@ class RunInContainer:
 
     def generate(self) -> list[IBuildStep]:
         result = []
-        # Create dirs relative to the container basedir. Won't create based on absolute paths
+        # Create workdirs. Only relative paths
         workdirs = []
         for step in self.steps:
             if step.command.workdir and step.command.workdir not in workdirs and not os.path.isabs(step.command.workdir):
@@ -112,7 +110,7 @@ class RunInContainer:
             step.add_cmd_prefix([
                 "docker",
                 "run",
-                "--init",  # Run an init inside the container that forwards signals and reaps processes. Fixes signal handling when stopping a build (GUI << stop >> or buildmaster shutdown)
+                "--init", # To proper handle signals
                 "--name",
                 util.Interpolate(f"{self.buildername}"),
                 "-u",
@@ -127,7 +125,9 @@ class RunInContainer:
                     "--mount",
                     util.Interpolate(f"type={type},src={src},dst={dst}"),
                 ])
-            for env in self.config.env_vars:  # TODO(Razvan) env[1] might need quoting
+
+            # TODO(Razvan) env[1] might need quoting
+            for env in self.config.env_vars:  
                 step.add_cmd_prefix(["-e", f"{env[0]}={env[1]}"])
             step.add_cmd_prefix([f"--shm-size={self.config.shm_size}"])
 
@@ -135,8 +135,7 @@ class RunInContainer:
             if os.path.isabs(step.command.workdir):
                 step.add_cmd_prefix(["-w", f"{step.command.workdir}"])
             else:
-                # If a relative path is given we consider it relative to the basedir
-                # and basedir should always be an attribute of DockerConfig
+                # (TODO: Razvan) No gurarantee that this is a valid relative path
                 step.add_cmd_prefix(["-w", f"{self.config.basedir}/{step.command.workdir}"])
 
             step.add_cmd_prefix([self.container_image])
@@ -147,7 +146,7 @@ class RunInContainer:
             # Create a checkpoint
             if hasattr(step, 'checkpoint') and step.checkpoint:
                 if not self.config.checkpoint:
-                    raise ValueError("Please provide a unique checkpoint name in the DockerConfig")
+                    raise ValueError("Please provide a unique checkpoint name in DockerConfig")
                 result.append(steps.ShellCommand(
                     name=f"Checkpoint {step.name}",
                     command=[
@@ -159,7 +158,7 @@ class RunInContainer:
                     ],
                     haltOnFailure=True,
                 ))
-                # Update the container image tag for the next steps in the sequence
+                # Next steps will start from the checkpoint
                 self.container_image = self.config.checkpoint
 
         return result
@@ -175,7 +174,7 @@ class InContainerBuildSequence(BuildSequence):
 
     def get_prepare_steps(self) -> Iterable[IBuildStep]:
         return [
-            PrintEnvironmentDetails(), # TODO (razvan) # nu trebuie sa ruleze de un trilion de ori per build seq
+            PrintEnvironmentDetails(),
             CleanupDockerResources(name="previous", buildername=self.buildername, config=self.config),
             FetchContainerImage(self.config),
         ]
