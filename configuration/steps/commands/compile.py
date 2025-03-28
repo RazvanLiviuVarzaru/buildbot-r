@@ -67,3 +67,23 @@ class CompileRpmAutobake(Command):
                 ),
         ]
         return result
+    
+class InstallRPMPackages(Command):
+    def __init__(
+        self,
+        workdir: str = "",
+    ):
+        name = "Install RPM Packages"
+        super().__init__(name=name, workdir=workdir, user="root")
+
+    def as_cmd_arg(self) -> list[str]:
+        result = [
+            'bash',
+            '-ec'
+            ,util.Interpolate(
+                    f"""
+                    yum -y --nogpgcheck install *.rpm
+                    """,
+                ),
+        ]
+        return result

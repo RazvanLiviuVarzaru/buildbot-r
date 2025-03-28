@@ -9,6 +9,8 @@ from configuration.builders.base import BuildSequence
 from configuration.steps.base import PrefixableStep
 from configuration.steps.commands.base import Command
 from typing import Union
+import os
+import random
 
 @dataclass
 class DockerConfig:
@@ -18,17 +20,21 @@ class DockerConfig:
     env_vars: list[tuple[str, str]]
     shm_size: str
     memlock_limit: int
+    basedir: str
+    checkpoint: str = None
 
 
 class CleanupDockerResources(steps.ShellCommand):
-    def __init__(self, name):
+    def __init__(self, name, config: DockerConfig, buildername: str):
+        self.buildername = buildername
+        self.config = config
         super().__init__(
             name=f"Cleanup Docker resources - {name} run",
             command=[
                 "bash",
                 "-ec",
                 util.Interpolate(
-                    f"docker kill %(prop:buildername)s || true && docker volume rm %(prop:buildername)s || true"
+                    f"docker kill {self.buildername} || true && docker volume rm {self.buildername} || true && docker image rm checkpoint:{self.buildername} || true"
                 ),
             ],
             alwaysRun=True,
@@ -73,45 +79,49 @@ class RunOnMaster:
     def generate(self) -> list[IBuildStep]:
         return self.steps
 
-
 class RunInContainer:
-    def __init__(self, container_config: DockerConfig, steps: list[PrefixableStep]):
+    def __init__(self, container_config: DockerConfig, steps: list[PrefixableStep], buildername: str):
         self.config = container_config
         self.steps = steps
         self.container_image = container_config.repository + container_config.image_tag
+        self.buildername = buildername
 
     def generate(self) -> list[IBuildStep]:
         result = []
-        # If the workdir doesn't exist, -w option will create it under root, even if the container runs under a different user, causing permission issues.
-        # Prepare all workdirs in the Volume before running any commands
+        # Create dirs relative to the container basedir. Won't create based on absolute paths
         workdirs = []
         for step in self.steps:
-            print(step.command.workdir)
-            if step.command.workdir and step.command.workdir not in workdirs:
+            if step.command.workdir and step.command.workdir not in workdirs and not os.path.isabs(step.command.workdir):
                 workdirs.append(step.command.workdir)
         if workdirs:
-            print('WOLOLOLO')
             result.append(
                 steps.ShellCommand(
                     name=f"Prepare in container ({self.config.image_tag}) workdirs",
                     command=util.Interpolate(
-                        f'docker run --rm --mount type=volume,src=%(prop:buildername)s,dst=/home/buildbot {self.container_image} mkdir -p {" ".join(workdirs)}'
+                        (
+                        'docker run --rm '
+                        f'--mount type=volume,src={self.buildername},dst=/home/buildbot '
+                        f'-w {self.config.basedir} '
+                        f'{self.container_image} mkdir -p {" ".join(workdirs)}'
+                        )
                     ),
                     haltOnFailure=True,
                 )
             )
-
         for step in self.steps:
             step.add_cmd_prefix([
                 "docker",
                 "run",
-                "--rm",
                 "--init",  # Run an init inside the container that forwards signals and reaps processes. Fixes signal handling when stopping a build (GUI << stop >> or buildmaster shutdown)
                 "--name",
-                util.Interpolate(f"%(prop:buildername)s"),
+                util.Interpolate(f"{self.buildername}"),
                 "-u",
                 f"{step.command.user}",
             ])
+
+            if not hasattr(step, 'checkpoint') or not step.checkpoint:
+                step.add_cmd_prefix(["--rm"])
+
             for src, dst, type in self.config.volume_mounts:
                 step.add_cmd_prefix([
                     "--mount",
@@ -120,34 +130,63 @@ class RunInContainer:
             for env in self.config.env_vars:  # TODO(Razvan) env[1] might need quoting
                 step.add_cmd_prefix(["-e", f"{env[0]}={env[1]}"])
             step.add_cmd_prefix([f"--shm-size={self.config.shm_size}"])
-            step.add_cmd_prefix(["-w", f"/home/buildbot/{step.command.workdir}"]) # TODO(cvicentiu) This workdir is hacky.
+
+            # Ignore basedir when an absolute path is given
+            if os.path.isabs(step.command.workdir):
+                step.add_cmd_prefix(["-w", f"{step.command.workdir}"])
+            else:
+                # If a relative path is given we consider it relative to the basedir
+                # and basedir should always be an attribute of DockerConfig
+                step.add_cmd_prefix(["-w", f"{self.config.basedir}/{step.command.workdir}"])
+
             step.add_cmd_prefix([self.container_image])
+
+            # User defined step to run in the container
             result.append(step.generate())
+
+            # Create a checkpoint
+            if hasattr(step, 'checkpoint') and step.checkpoint:
+                if not self.config.checkpoint:
+                    raise ValueError("Please provide a unique checkpoint name in the DockerConfig")
+                result.append(steps.ShellCommand(
+                    name=f"Checkpoint {step.name}",
+                    command=[
+                        "bash",
+                        "-c",
+                        util.Interpolate(
+                            f"docker commit {self.buildername} {self.config.checkpoint} && docker rm {self.buildername}"
+                        ),
+                    ],
+                    haltOnFailure=True,
+                ))
+                # Update the container image tag for the next steps in the sequence
+                self.container_image = self.config.checkpoint
 
         return result
 
 
 class InContainerBuildSequence(BuildSequence):
-    def __init__(self, steps: list[Command], config: DockerConfig):
+    def __init__(self, steps: list[Command], config: DockerConfig, buildername: str):
         if not isinstance(config, DockerConfig):
             raise TypeError("Config must be an instance of DockerConfig")
         self.config = config
         self.steps = steps
+        self.buildername = buildername
 
     def get_prepare_steps(self) -> Iterable[IBuildStep]:
         return [
             PrintEnvironmentDetails(), # TODO (razvan) # nu trebuie sa ruleze de un trilion de ori per build seq
-            CleanupDockerResources(name="previous"),
+            CleanupDockerResources(name="previous", buildername=self.buildername, config=self.config),
             FetchContainerImage(self.config),
         ]
 
     def get_active_steps(self) -> Iterable[IBuildStep]:
         return RunInContainer(
-            container_config=self.config, steps=self.steps
+            container_config=self.config, steps=self.steps, buildername=self.buildername
         ).generate()
 
     def get_cleanup_steps(self) -> Iterable[IBuildStep]:
-        return [CleanupDockerResources(name="current")]
+        return [CleanupDockerResources(name="current", buildername=self.buildername, config=self.config)]
         # return []
 
 

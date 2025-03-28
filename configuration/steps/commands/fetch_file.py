@@ -38,3 +38,12 @@ class FetchCompat(Command):
                 f'ls -l && ls -l ../ && wget --no-check-certificate -cO MariaDB-shared-5.3.{self.arch}.rpm "{self.url}/helper_files/mariadb-shared-5.3-{self.arch}.rpm" && wget -cO MariaDB-shared-10.1.{self.arch}.rpm "%(kw:url)s/helper_files/mariadb-shared-10.1-kvm-rpm-{self.rpm_type}-{self.arch}.rpm"',
             ),
         ]
+
+
+class SimpleTouchFile(Command):
+    def __init__(self, filename: str, workdir: str):
+        super().__init__(name=filename, workdir=workdir)
+        self.filename = filename
+
+    def as_cmd_arg(self) -> list[str]:
+        return ["bash", "-c", f"ls -l && touch {self.filename}"]

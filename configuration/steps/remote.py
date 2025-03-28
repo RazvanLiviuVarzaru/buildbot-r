@@ -42,3 +42,10 @@ class PropFromShellStep(PrefixableStep):
                 extract_fn=self.extract_fn,
                 **self.options.getopt,
             )
+# Supports checkpointing
+class DockerShellStep(ShellStep):
+    def __init__(self, command: Command, options: StepOptions = None, interruptSignal="TERM", checkpoint:bool=False):
+        self.checkpoint = checkpoint
+        super().__init__(command, options, interruptSignal)
+        
+
