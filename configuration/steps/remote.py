@@ -1,6 +1,6 @@
 from buildbot.plugins import steps
 
-from configuration.steps.base import BaseStep, PrefixableStep, StepOptions
+from configuration.steps.base import PrefixableStep, StepOptions
 from configuration.steps.commands.base import Command
 
 

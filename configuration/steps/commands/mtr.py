@@ -1,15 +1,7 @@
-from dataclasses import dataclass
-
 from buildbot.plugins import util
 
 from configuration.steps.commands.base import Command
 from configuration.steps.generators.mtr.generator import MTRGenerator
-from configuration.steps.generators.mtr.options import (
-    MTR,
-    SUITE,
-    MTROption,
-    TestSuiteCollection,
-)
 
 
 class MTRTest(Command):

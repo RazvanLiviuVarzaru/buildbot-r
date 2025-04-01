@@ -1,5 +1,5 @@
 from configuration.builders.infra.runtime import OnMasterBuildSequence
-from configuration.steps.trigger import DockerLibrary, Install, Upgrade
+from configuration.steps.commands._WIP_trigger import DockerLibrary, Install, Upgrade
 
 
 def set_property():

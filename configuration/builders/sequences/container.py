@@ -11,7 +11,6 @@ from configuration.steps.commands.mtr import ArchiveLogs, MTRTest
 from configuration.steps.commands.packages import CreateRpmRepo, SavePackages
 from configuration.steps.generators.cmake.generator import CMakeGenerator
 from configuration.steps.generators.cmake.options import (
-    CMAKE,
     OTHER,
     BuildConfig,
     CMakeOption,

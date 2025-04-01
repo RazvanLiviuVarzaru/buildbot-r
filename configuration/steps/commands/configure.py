@@ -1,10 +1,5 @@
-from buildbot import interfaces, steps
-from buildbot.plugins import util
-
 from configuration.steps.commands.base import Command
-from configuration.steps.generators.cmake.compilers import CompilerCommand
 from configuration.steps.generators.cmake.generator import CMakeGenerator
-from configuration.steps.generators.cmake.options import CMAKE, BuildType, CMakeOption
 
 
 class ConfigureMariaDBCMake(Command):
