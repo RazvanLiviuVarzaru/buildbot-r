@@ -8,6 +8,7 @@ try:
 except ImportError:  # pragma: no cover
     from configuration.steps.generators.base.options import StrEnum
 
+
 class MTR(StrEnum):
     # This class is used for type safety and preventing typos. Instead of
     # passing raw strings to create an MTR run command, generate the flag
@@ -99,6 +100,7 @@ class SUITE(StrEnum):
     VCOL = "vcol"
     VERSIONING = "versioning"
     WSREP = "wsrep"
+
 
 @dataclass
 class TestSuiteCollection:

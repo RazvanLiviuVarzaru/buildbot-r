@@ -3,16 +3,19 @@ from buildbot.plugins import util
 from configuration.steps.commands.base import Command
 from utils import read_template
 
+
 # TODO (Razvan):This is a copy-paste only to showcase a full factory. Re-work needed.
 class FetchTarball(Command):
     def __init__(self, workdir: str):
-        super().__init__(name = "Download and unpack source tarball",workdir=workdir)
+        super().__init__(name="Download and unpack source tarball", workdir=workdir)
+
     def as_cmd_arg(self) -> list[str]:
         return [
             "bash",
             "-ec",
             util.Interpolate(read_template("get_tarball")),
         ]
+
 
 # TODO (Razvan):This is a copy-paste only to showcase a full factory. Re-work needed.
 class FetchCompat(Command):
@@ -23,9 +26,7 @@ class FetchCompat(Command):
         url: str,
         workdir: str = "",
     ):
-        super().__init__(
-            name="Fetch MariaDB compat RPMs", workdir=workdir
-        )
+        super().__init__(name="Fetch MariaDB compat RPMs", workdir=workdir)
         self.rpm_type = rpm_type
         self.arch = arch
         self.url = url
@@ -39,8 +40,9 @@ class FetchCompat(Command):
             ),
         ]
 
+
 class FindFiles(Command):
-    def __init__(self,  include:str,exclude: str = "",workdir: str = ""):
+    def __init__(self, include: str, exclude: str = "", workdir: str = ""):
         self.include = include
         self.exclude = exclude
         name = f"List {include}"
@@ -53,5 +55,4 @@ class FindFiles(Command):
             util.Interpolate(
                 f'find . -maxdepth 1 -type f -name "{self.include}" ! -name "{self.exclude}" | xargs',
             ),
-
         ]

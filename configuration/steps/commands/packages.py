@@ -6,6 +6,7 @@ from configuration.steps.base import Command
 class CreateDebRepo:
     pass
 
+
 # TODO (Razvan):This is a copy-paste only to showcase a full factory. Re-work needed.
 class CreateRpmRepo(Command):
     def __init__(
@@ -45,7 +46,7 @@ class CreateRpmRepo(Command):
             ),
         ]
         return result
-    
+
 
 class SavePackages(Command):
     """
@@ -53,11 +54,12 @@ class SavePackages(Command):
     starting from the current working directory and
     assuming that /packages is bind mounted.
     """
+
     def __init__(
         self,
         packages: list[str],
         workdir: str = "",
-        destination: str  = "/packages/%(prop:tarbuildnum)s/%(prop:buildername)s"
+        destination: str = "/packages/%(prop:tarbuildnum)s/%(prop:buildername)s",
     ):
         name = "Save packages"
         self.packages = packages
@@ -70,7 +72,7 @@ class SavePackages(Command):
             "bash",
             "-ec",
             util.Interpolate(
-            f"""
+                f"""
                 mkdir -p {self.destination} &&
                 cp -r {package_list} {self.destination}
                 """,

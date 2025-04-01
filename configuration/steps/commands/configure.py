@@ -14,4 +14,3 @@ class ConfigureMariaDBCMake(Command):
 
     def as_cmd_arg(self) -> list[str]:
         return self.cmake_generator.generate()
-

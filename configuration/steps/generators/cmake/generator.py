@@ -15,7 +15,13 @@ class CMakeGenerator(BaseGenerator):
     Generates a CMake command with specified flags.
     """
 
-    def __init__(self, flags: Iterable[CMakeOption], use_ccache : bool = False, compiler : CompilerCommand = None, source_path: str = "."):
+    def __init__(
+        self,
+        flags: Iterable[CMakeOption],
+        use_ccache: bool = False,
+        compiler: CompilerCommand = None,
+        source_path: str = ".",
+    ):
         """
         Initializes the CMakeGenerator with an optional list of flags.
 

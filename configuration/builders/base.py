@@ -38,7 +38,7 @@ class BaseBuilder:
     def get_factory(self) -> BuildFactory:
         factory = BuildFactory()
         # Prevent duplicate preparation and cleanup steps
-        seen = set() 
+        seen = set()
 
         # Preparation steps
         for seq in self.build_sequences:
@@ -82,10 +82,7 @@ class BaseBuilder:
 
 
 class Builder(BaseBuilder):
-    def __init__(
-        self, name, sequences
-    ):
+    def __init__(self, name, sequences):
         super().__init__(name)
         for sequence in sequences:
             self.add_sequence(sequence)
-

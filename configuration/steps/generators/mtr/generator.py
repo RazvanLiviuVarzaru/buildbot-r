@@ -9,7 +9,9 @@ from configuration.steps.generators.mtr.options import (
 
 
 class MTRGenerator(BaseGenerator):
-    def __init__(self, flags: Iterable[MTROption], suite_collection: TestSuiteCollection = None):
+    def __init__(
+        self, flags: Iterable[MTROption], suite_collection: TestSuiteCollection = None
+    ):
         super().__init__(
             base_cmd=["perl", "mariadb-test-run.pl"], flags=flags, allow_duplicates=True
         )

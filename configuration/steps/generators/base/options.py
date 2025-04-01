@@ -11,6 +11,7 @@ except ImportError:  # pragma: no cover
         def __str__(self):
             return self.value
 
+
 class Option(ABC):
     @staticmethod
     def _quote_value(value: str):

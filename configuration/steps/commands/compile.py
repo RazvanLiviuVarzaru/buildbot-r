@@ -1,18 +1,21 @@
-from buildbot.plugins import util
 from enum import Enum
+
+from buildbot.plugins import util
 
 from configuration.steps.commands.base import Command
 
+
 class MAKE(Enum):
-    COMPILE = ''
-    PACKAGE = 'package'
-    SOURCE = 'package_source'
+    COMPILE = ""
+    PACKAGE = "package"
+    SOURCE = "package_source"
+
 
 class CompileMakeCommand(Command):
     def __init__(self, option: MAKE, jobs, verbose: bool = False, workdir: str = ""):
         self.verbose = verbose
         if not isinstance(option, MAKE):
-            raise ValueError(f"Invalid option: {option}") 
+            raise ValueError(f"Invalid option: {option}")
         self.name = f"Make - {option.name.lower()}"
 
         super().__init__(name=self.name, workdir=workdir)
@@ -24,12 +27,9 @@ class CompileMakeCommand(Command):
         )
 
     def as_cmd_arg(self) -> list[str]:
-        result = [
-            "bash",
-            "-ec",
-            self.command
-        ]
+        result = ["bash", "-ec", self.command]
         return result
+
 
 class CompileCMakeCommand(Command):
     def __init__(self, verbose: bool, workdir: str = ""):
@@ -49,12 +49,12 @@ class CompileDebAutobake(Command):
     # TODO(Razvan) Implement this for Debian Autobake
     def __init__(self): ...
 
+
 class InstallRPMFromProp(Command):
     def __init__(
         self,
         property_name: str,
         workdir: str = "",
-
     ):
         name = "Install RPM Packages"
         self.property_name = property_name
@@ -62,19 +62,17 @@ class InstallRPMFromProp(Command):
 
     def as_cmd_arg(self) -> list[str]:
         result = [
-            'bash',
-            '-ec'
-            ,util.Interpolate(
-                    f"""
+            "bash",
+            "-ec",
+            util.Interpolate(
+                f"""
                     yum -y --nogpgcheck install %(kw:packages)s
 
                     if [ -d "/usr/share/mysql-test" ]; then
                         ln -s /usr/share/mysql-test /usr/share/mariadb-test
                     fi
                     """,
-                    packages=util.Property(self.property_name),
-                ),
+                packages=util.Property(self.property_name),
+            ),
         ]
         return result
-
-
