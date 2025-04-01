@@ -1,24 +1,21 @@
 from buildbot.plugins import util
 
-from configuration.steps.base import Command, CommandOptions
+from configuration.steps.base import Command
 
 
 class CreateDebRepo:
     pass
 
-
+# TODO (Razvan):This is a copy-paste only to showcase a full factory. Re-work needed.
 class CreateRpmRepo(Command):
     def __init__(
         self,
         rpm_type,
         url,
-        options: CommandOptions = None,
         workdir: str = "",
     ):
-        name = "MariaDB - Create local RPM repository"
-        if options is None:
-            options = CommandOptions()
-        super().__init__(name=name, workdir=workdir, options=options)
+        name = "Create local RPM repository"
+        super().__init__(name=name, workdir=workdir)
         self.rpm_type = rpm_type
         self.url = url
 
@@ -31,6 +28,8 @@ class CreateRpmRepo(Command):
                 if [ -e MariaDB-shared-10.1.*.rpm ]; then
                 rm MariaDB-shared-10.1.*.rpm
                 fi
+                mkdir -p rpms srpms
+                mv *.src.rpm srpms/
                 mv *.rpm rpms/
                 createrepo rpms/
                 cat << EOF > MariaDB.repo
@@ -46,32 +45,35 @@ class CreateRpmRepo(Command):
             ),
         ]
         return result
+    
 
-
-class SaveRpmPackages(Command):
+class SavePackages(Command):
+    """
+    This class is used to recursively copy a list of files and dirs to CI,
+    starting from the current working directory and
+    assuming that /packages is bind mounted.
+    """
     def __init__(
         self,
-        rpm_type,
-        url,
-        options: CommandOptions = None,
+        packages: list[str],
         workdir: str = "",
+        destination: str  = "/packages/%(prop:tarbuildnum)s/%(prop:buildername)s"
     ):
-        name = "MariaDB - Save RPM packages"
-        if options is None:
-            options = CommandOptions()
-        super().__init__(name=name, workdir=workdir, options=options)
+        name = "Save packages"
+        self.packages = packages
+        self.destination = destination
+        super().__init__(name=name, workdir=workdir)
 
     def as_cmd_arg(self) -> list[str]:
+        package_list = " ".join(self.packages)
         result = [
             "bash",
             "-ec",
             util.Interpolate(
-                f"""
-                mkdir -p /packages/%(prop:tarbuildnum)s/%(prop:buildername)s &&
-                cp -r MariaDB.repo rpms srpms /packages/%(prop:tarbuildnum)s/%(prop:buildername)s/ &&
-                ln -sf %(prop:tarbuildnum)s/%(prop:buildername)s/MariaDB.repo /packages/%(prop:branch)s-latest-%(prop:buildername)s.repo &&
-                sync /packages/%(prop:tarbuildnum)s
-                    """,
+            f"""
+                mkdir -p {self.destination} &&
+                cp -r {package_list} {self.destination}
+                """,
             ),
         ]
         return result

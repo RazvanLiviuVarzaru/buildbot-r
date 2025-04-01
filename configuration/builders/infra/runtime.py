@@ -19,7 +19,6 @@ class DockerConfig:
     shm_size: str
     memlock_limit: int
     basedir: str
-    checkpoint: str = None # define when steps require a checkpoint
 
 
 class CleanupDockerResources(steps.ShellCommand):
@@ -128,7 +127,7 @@ class RunInContainer:
 
             # TODO(Razvan) env[1] might need quoting
             for env in self.config.env_vars:  
-                step.add_cmd_prefix(["-e", f"{env[0]}={env[1]}"])
+                step.add_cmd_prefix(["-e", util.Interpolate(f"{env[0]}={env[1]}")])
             step.add_cmd_prefix([f"--shm-size={self.config.shm_size}"])
 
             # Ignore basedir when an absolute path is given
@@ -145,21 +144,20 @@ class RunInContainer:
 
             # Create a checkpoint
             if hasattr(step, 'checkpoint') and step.checkpoint:
-                if not self.config.checkpoint:
-                    raise ValueError("Please provide a unique checkpoint name in DockerConfig")
+                checkpoint = f'checkpoint:{self.buildername}'
                 result.append(steps.ShellCommand(
                     name=f"Checkpoint {step.name}",
                     command=[
                         "bash",
                         "-c",
                         util.Interpolate(
-                            f"docker commit {self.buildername} {self.config.checkpoint} && docker rm {self.buildername}"
+                            f"docker commit {self.buildername} {checkpoint} && docker rm {self.buildername}"
                         ),
                     ],
                     haltOnFailure=True,
                 ))
                 # Next steps will start from the checkpoint
-                self.container_image = self.config.checkpoint
+                self.container_image = checkpoint
 
         return result
 

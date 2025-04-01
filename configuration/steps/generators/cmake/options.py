@@ -75,6 +75,7 @@ class OTHER(StrEnum):
     """
 
     BUILD_CONFIG = "BUILD_CONFIG"
+    RPM = "RPM"
 
 
 # Flag values use CapitalCase

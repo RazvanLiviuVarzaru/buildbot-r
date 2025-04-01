@@ -23,12 +23,13 @@ class ShellStep(PrefixableStep):
             )
     
 class PropFromShellStep(PrefixableStep):
-    def __init__(self, command: Command,extract_fn, options: StepOptions = None, interruptSignal="TERM"):
+    def __init__(self, command: Command,property, options: StepOptions = None, interruptSignal="TERM"):
         self.command = command
         self.interruptSignal = interruptSignal
-        self.extract_fn = extract_fn
+        self.property = property
         assert isinstance(command, Command)
-        super().__init__(command.name, options)
+        name = f'Set {self.property} from {command.name}'
+        super().__init__(name, options)
         self.prefix_cmd = []
 
     def add_cmd_prefix(self, command):
@@ -39,7 +40,7 @@ class PropFromShellStep(PrefixableStep):
                 name=self.name,
                 command = [*self.prefix_cmd, *self.command.as_cmd_arg()],
                 interruptSignal=self.interruptSignal,
-                extract_fn=self.extract_fn,
+                property=self.property,
                 **self.options.getopt,
             )
 # Supports checkpointing
