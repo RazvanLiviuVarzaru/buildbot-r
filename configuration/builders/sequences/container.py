@@ -28,7 +28,14 @@ from utils import hasFailed, hasPackagesGenerated, savePackageIfBranchMatch
 
 
 def rpm_autobake(
-    config, jobs, buildername, rpm_type, arch, artifacts_url, has_compat=False
+    config,
+    jobs,
+    buildername,
+    rpm_type,
+    arch,
+    artifacts_url,
+    has_compat=False,
+    test_galera=False,
 ):
     steps = []
     if has_compat:
@@ -117,6 +124,10 @@ def rpm_autobake(
                     ),
                 ),
             ),
+        ]
+    )
+    if test_galera:
+        steps.append(
             ShellStep(
                 MTRTest(
                     name="galera",
@@ -144,6 +155,9 @@ def rpm_autobake(
                     ),
                 ),
             ),
+        )
+    steps.extend(
+        [
             ShellStep(
                 command=CreateRpmRepo(
                     rpm_type=rpm_type,
