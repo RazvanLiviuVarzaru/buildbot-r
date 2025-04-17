@@ -1,4 +1,5 @@
 from enum import Enum
+from pathlib import PurePath
 
 from buildbot.plugins import util
 from configuration.steps.commands.base import Command
@@ -16,7 +17,7 @@ class CompileMakeCommand(Command):
         option: MAKE,
         jobs,
         verbose: bool = False,
-        workdir: str = "",
+        workdir: PurePath = PurePath("."),
         output_sync: bool = True,
     ):
         self.verbose = verbose
@@ -41,7 +42,11 @@ class CompileMakeCommand(Command):
 
 class CompileCMakeCommand(Command):
     def __init__(
-        self, jobs, builddir: str = ".", verbose: bool = False, workdir: str = ""
+        self,
+        jobs,
+        builddir: str = ".",
+        verbose: bool = False,
+        workdir: PurePath = PurePath("."),
     ):
         self.verbose = verbose
         self.builddir = builddir
@@ -60,7 +65,7 @@ class CompileCMakeCommand(Command):
 
 
 class CompileDebAutobake(Command):
-    def __init__(self, workdir: str = ""):
+    def __init__(self, workdir: PurePath = PurePath(".")):
         super().__init__(name="Compile - deb autobake", workdir=workdir)
 
     def as_cmd_arg(self) -> list[str]:
@@ -71,7 +76,7 @@ class InstallRPMFromProp(Command):
     def __init__(
         self,
         property_name: str,
-        workdir: str = "",
+        workdir: PurePath = PurePath("."),
     ):
         name = "Install RPM Packages"
         self.property_name = property_name

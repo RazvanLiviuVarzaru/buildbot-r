@@ -1,6 +1,6 @@
 import os
 from dataclasses import dataclass
-from pathlib import Path
+from pathlib import Path, PurePath
 from typing import Iterable
 
 from buildbot.interfaces import IBuildStep
@@ -12,25 +12,36 @@ from configuration.steps.base import PrefixableStep
 class DockerConfig:
     repository: str  # e.g. quay/ghcr + org/repo
     image_tag: str
+    container_name: str
     bind_mounts: list[tuple[Path, Path]]  # src, dst
     env_vars: list[tuple[str, str]]
     shm_size: str
     memlock_limit: int
-    workdir: str
+    workdir: PurePath
+
+    @property
+    def image(self) -> str:
+        return f"{self.repository}{self.image_tag}"
+
+    @property
+    def volumemount(self):
+        return f"type=volume,src={self.container_name},dst={self.workdir}"
 
 
 class CleanupDockerResources(steps.ShellCommand):
-    def __init__(self, name, config: DockerConfig, buildername: str):
-        self.buildername = buildername
-        self.config = config
+    def __init__(self, name, config: DockerConfig):
         super().__init__(
             name=f"Cleanup Docker resources - {name} run",
             command=[
                 "bash",
                 "-ec",
-                util.Interpolate(
-                    f"docker rm --force {self.buildername} || true && docker volume rm {self.buildername} || true && docker image rm buildbot:{self.buildername} || true"
-                ),
+                f"""
+                (
+                    docker rm --force {config.container_name};
+                    docker volume rm {config.container_name};
+                    docker image rm buildbot:{config.container_name};
+                ) || true
+                """,
             ],
             alwaysRun=True,
         )
@@ -41,35 +52,12 @@ class CleanupWorkerDir(steps.ShellCommand):
         super().__init__(
             name=f"Cleanup Worker Directory - {name} run",
             command="rm -r * .* 2> /dev/null || true",
-            haltOnFailure=True,
             alwaysRun=True,
-        )
-
-
-class PrintEnvironmentDetails(steps.ShellCommand):
-    def __init__(self):
-        super().__init__(
-            name="Print Environment Details",
-            command=[
-                "bash",
-                "-c",
-                util.Interpolate(
-                    """
-                            date -u
-                            uname -a
-                            ulimit -a
-                            command -v lscpu >/dev/null && lscpu
-                            LD_SHOW_AUXV=1 sleep 0
-                            """
-                ),
-            ],
-            haltOnFailure=True,
         )
 
 
 class FetchContainerImage(steps.ShellCommand):
     def __init__(self, config: DockerConfig):
-        self.config = config
         super().__init__(
             name=f"Fetch Container Image - {config.image_tag}",
             command=["docker", "pull", config.repository + config.image_tag],
@@ -78,17 +66,15 @@ class FetchContainerImage(steps.ShellCommand):
 
 
 class TagContainerImage(steps.ShellCommand):
-    def __init__(self, config: DockerConfig, buildername: str):
-        self.config = config
-        self.buildername = buildername
-        self.image = config.repository + config.image_tag
+    def __init__(self, config: DockerConfig):
         super().__init__(
             name=f"Tag Container Image - {config.image_tag}",
             command=[
                 "bash",
                 "-ec",
-                util.Interpolate(
-                    f"docker image rm buildbot:{self.buildername} || true && docker tag {self.image} buildbot:{self.buildername}"
+                (
+                    f"docker image rm -f buildbot:{config.container_name} && "
+                    f"docker tag {config.image} buildbot:{config.container_name}"
                 ),
             ],
             haltOnFailure=True,
@@ -98,162 +84,142 @@ class TagContainerImage(steps.ShellCommand):
 class BuildSequence:
     def __init__(
         self,
-        prepare_steps: Iterable[IBuildStep],
-        active_steps: Iterable[IBuildStep],
-        cleanup_steps: Iterable[IBuildStep],
+        # Provide a docker_environment if you've configured at least
+        # one step to run in a container
+        docker_environment: DockerConfig = None,
     ):
-        self.prepare_steps = prepare_steps
-        self.active_steps = active_steps
-        self.cleanup_steps = cleanup_steps
+        self.prepare_steps = []
+        self.active_steps = []
+        self.cleanup_steps = []
+        self._docker_workdirs = []
+        self.docker_environment = docker_environment
 
-    # Steps that will be called at the beginning of the BaseBuilder's build
-    # process.
+        if docker_environment:
+            self.prepare_steps.append(
+                CleanupDockerResources(name="previous", config=docker_environment)
+            )
+            self.prepare_steps.append(FetchContainerImage(config=docker_environment))
+            self.prepare_steps.append(TagContainerImage(config=docker_environment))
+
     def get_prepare_steps(self) -> Iterable[IBuildStep]:
-        return [
-            PrintEnvironmentDetails(),
-            CleanupWorkerDir("previous"),
-        ] + self.prepare_steps
+        return (
+            self.prepare_steps
+            + [CleanupWorkerDir("previous")]
+            + self._create_docker_workdirs()
+        )
 
-    # Generate steps that will be called after *all* prepare steps for all
-    # attached build sequences are called.
     def get_active_steps(self) -> Iterable[IBuildStep]:
         return self.active_steps
 
-    # Steps that will be called at the end of the BaseBuilder's build process.
     def get_cleanup_steps(self) -> Iterable[IBuildStep]:
-        return [CleanupWorkerDir("current")] + self.cleanup_steps
+        return self.cleanup_steps + [CleanupWorkerDir("current")]
 
+    def _add_docker_workdirs(self, workdir: PurePath):
+        # All created paths should be relative to the base container workdir
+        if str(workdir) not in self._docker_workdirs and not workdir.is_absolute():
+            self._docker_workdirs.append(str(workdir))
 
-class RunInContainer:
-    def __init__(
-        self,
-        container_config: DockerConfig,
-        active_steps: list[PrefixableStep],
-        buildername: str,
-        build_sequence: BuildSequence,
-    ):
-        self.config = container_config
-        self.steps = active_steps
-        self.buildername = buildername
-        self.container_image = f"buildbot:{self.buildername}"
-        self.build_sequence = build_sequence
-        self._volume_mount = (
-            f"--mount type=volume,src={self.buildername},dst={self.config.workdir}"
-        )
-
-    def generate(self) -> list[IBuildStep]:
-        result = []
-        # Create workdirs. Only relative paths
-        workdirs = []
-        for step in self.steps:
-            if (
-                step.command.workdir
-                and step.command.workdir not in workdirs
-                and not os.path.isabs(step.command.workdir)
-            ):
-                workdirs.append(step.command.workdir)
-        if workdirs:
-            result.append(
+    def _create_docker_workdirs(self):
+        if self.docker_environment:
+            return [
                 steps.ShellCommand(
-                    name=f"Prepare in container ({self.config.image_tag}) workdirs",
-                    command=util.Interpolate(
-                        (
-                            "docker run --rm "
-                            f"{self._volume_mount} "
-                            f"-w {self.config.workdir} "
-                            f'{self.container_image} mkdir -p {" ".join(workdirs)}'
-                        )
+                    name=f"Prepare in container ({self.docker_environment.image_tag}) workdirs",
+                    command=(
+                        "docker run --rm "
+                        f"--mount{self.docker_environment.volumemount} "
+                        f"{self.docker_environment.image} mkdir -p . {' '.join(self._docker_workdirs)} "
                     ),
                     haltOnFailure=True,
                 )
-            )
-        for step in self.steps:
-            step.add_cmd_prefix(
-                [
-                    "docker",
-                    "run",
-                    "--init",  # To proper handle signals
-                    "--name",
-                    util.Interpolate(f"{self.buildername}"),
-                    "-u",
-                    f"{step.command.user}",
-                ]
-            )
+            ]
+        return []
 
-            if not hasattr(step, "checkpoint") or not step.checkpoint:
-                step.add_cmd_prefix(["--rm"])
+    def add_step(self, step: IBuildStep):
+        if step.run_in_container:
+            if not self.docker_environment:
+                raise ValueError(
+                    "Running in container steps requires a docker_environment to be set"
+                )
+            self._add_in_container_step(self.docker_environment, step)
+        else:
+            self.active_steps.append(step.generate())
 
-            # Mandatory volume mount for state sharing between steps
+    def _add_in_container_step(
+        self,
+        config: DockerConfig,
+        step: PrefixableStep,
+    ):
+
+        if step.command.workdir:
+            self._add_docker_workdirs(step.command.workdir)
+
+        result = []
+        step.add_cmd_prefix(
+            [
+                "docker",
+                "run",
+                "--init",
+                "--name",
+                f"{config.container_name}",
+                "-u",
+                f"{step.command.user}",
+            ]
+        )
+
+        if not step.container_commit:
+            step.add_cmd_prefix(["--rm"])
+
+        # Mandatory volume mount for state sharing between steps
+        step.add_cmd_prefix(
+            [
+                "--mount",
+                config.volumemount,
+            ]
+        )
+        # User defined bind mounts
+        for src, dst in config.bind_mounts:
             step.add_cmd_prefix(
                 [
                     "--mount",
-                    util.Interpolate(self._volume_mount),
+                    f"type=bind,src={src},dst={dst}",
                 ]
             )
-            # User defined bind mounts
-            for src, dst in self.config.bind_mounts:
-                step.add_cmd_prefix(
-                    [
-                        "--mount",
-                        util.Interpolate(f"type=bind,src={src},dst={dst}"),
-                    ]
+
+        # Global variables form the base
+        env_vars = dict(config.env_vars)
+        # Step variables override global variables
+        env_vars.update(step.env_vars)
+        for variable, value in env_vars.items():
+            step.add_cmd_prefix(["-e", util.Interpolate(f"{variable}={value}")])
+
+        step.add_cmd_prefix([f"--shm-size={config.shm_size}"])
+
+        path = config.workdir / step.command.workdir
+        # Absolute command workdir overrides basedir.
+        if step.command.workdir.is_absolute():
+            path = step.command.workdir
+
+        step.add_cmd_prefix(["-w", path.as_posix()])
+
+        step.add_cmd_prefix([config.image])
+
+        if step.container_commit:
+            result.append(
+                steps.ShellCommand(
+                    name=f"Checkpoint {step.name}",
+                    command=[
+                        "bash",
+                        "-c",
+                        (
+                            "docker container commit "
+                            f"--message {step.name} {config.container_name} "
+                            f"buildbot:{config.container_name} && "
+                            f"docker rm {config.container_name}"
+                        ),
+                    ],
+                    haltOnFailure=True,
                 )
-            # Add env vars (global << sequence >> + local << step >>)
-            if step.env_vars:
-                env_vars = {env[0]: env[1] for env in self.config.env_vars}
-                env_vars.update({env[0]: env[1] for env in step.env_vars})
-                env_vars = list(env_vars.items())
-            else:
-                env_vars = self.config.env_vars
-
-            for env in env_vars:
-                step.add_cmd_prefix(["-e", util.Interpolate(f"{env[0]}={env[1]}")])
-
-            step.add_cmd_prefix([f"--shm-size={self.config.shm_size}"])
-
-            # Ignore basedir when an absolute path is given
-            if os.path.isabs(step.command.workdir):
-                step.add_cmd_prefix(["-w", f"{step.command.workdir}"])
-            else:
-                # (TODO: Razvan) No guarantee that this is a valid relative path
-                step.add_cmd_prefix(
-                    ["-w", f"{self.config.workdir}/{step.command.workdir}"]
-                )
-
-            step.add_cmd_prefix([self.container_image])
-
-            # User defined step to run in the container
-            result.append(step.generate())
-
-            # Create a checkpoint
-            if hasattr(step, "checkpoint") and step.checkpoint:
-                result.append(
-                    steps.ShellCommand(
-                        name=f"Checkpoint {step.name}",
-                        command=[
-                            "bash",
-                            "-c",
-                            util.Interpolate(
-                                f"docker container commit --message {step.name} {self.buildername} buildbot:{self.buildername} && docker rm {self.buildername}"
-                            ),
-                        ],
-                        haltOnFailure=True,
-                    )
-                )
-
-        self.build_sequence.prepare_steps.extend(
-            [
-                CleanupDockerResources(
-                    name="previous", config=self.config, buildername=self.buildername
-                ),
-                FetchContainerImage(self.config),
-                TagContainerImage(self.config, self.buildername),
-            ]
-        )
-        self.build_sequence.active_steps.extend(result)
-
-        self.build_sequence.cleanup_steps.append(
-            CleanupDockerResources(
-                name="current", config=self.config, buildername=self.buildername
             )
-        )
+        result.append(step.generate())
+        for step in result:
+            self.active_steps.append(step)

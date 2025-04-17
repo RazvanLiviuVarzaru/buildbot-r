@@ -8,11 +8,13 @@ class MasterShellStep(PrefixableStep):
         self,
         command: Command,
         options: StepOptions = None,
-        interruptSignal="TERM",
+        interrupt_signal="TERM",
         env_vars: list[tuple] = None,
     ):
+        if env_vars is None:
+            env_vars = []
         self.command = command
-        self.interruptSignal = interruptSignal
+        self.interrupt_signal = interrupt_signal
         assert isinstance(command, Command)
         super().__init__(command.name, options, env_vars=env_vars)
         self.prefix_cmd = []
@@ -24,6 +26,6 @@ class MasterShellStep(PrefixableStep):
         return steps.MasterShellCommand(
             name=self.name,
             command=[*self.prefix_cmd, *self.command.as_cmd_arg()],
-            interruptSignal=self.interruptSignal,
+            interruptSignal=self.interrupt_signal,
             **self.options.getopt,
         )

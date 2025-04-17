@@ -13,22 +13,11 @@ class WorkerPool:
         self.workers[arch].append(worker.name)
         self.instances.append(worker.instance)
 
-    # Use names if you want to assign specific workers from the pool for a given arch
-    def get_list(self, arch, names=[]):
-        if not names:
-            workers = self.workers[arch]
-            if not workers:
-                raise ValueError(f"No workers found for {arch}")
-        else:
-            all_workers = self.workers[arch]
-            not_found = [worker for worker in names if worker not in all_workers]
-            if not_found:
-                raise ValueError(
-                    f"Workers {', '.join(not_found)} not found in {arch} worker pool"
-                )
-            workers = names
-
-        return workers
+    def get_workers_for_arch(self, arch, filter_fn=None):
+        result = list(filter(filter_fn, self.workers[arch]))
+        if not result:
+            raise ValueError(f"No workers found for architecture: {arch}")
+        return result
 
 
 class NonLatent(WorkerBase):
