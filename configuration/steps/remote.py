@@ -1,9 +1,9 @@
 from buildbot.plugins import steps
-from configuration.steps.base import PrefixableStep, StepOptions
+from configuration.steps.base import StepOptions, BaseStep
 from configuration.steps.commands.base import Command
 
 
-class ShellStep(PrefixableStep):
+class ShellStep(BaseStep):
     def __init__(
         self,
         command: Command,
@@ -15,12 +15,10 @@ class ShellStep(PrefixableStep):
             env_vars = []
         self.command = command
         self.interrupt_signal = interrupt_signal
+        self.env_vars = env_vars
         assert isinstance(command, Command)
-        super().__init__(command.name, options, env_vars=env_vars)
+        super().__init__(command.name, options)
         self.prefix_cmd = []
-
-    def add_cmd_prefix(self, command):
-        self.prefix_cmd.extend(command)
 
     def generate(self):
         return steps.ShellCommand(
@@ -31,7 +29,7 @@ class ShellStep(PrefixableStep):
         )
 
 
-class PropFromShellStep(PrefixableStep):
+class PropFromShellStep(ShellStep):
     def __init__(
         self,
         command: Command,
@@ -40,18 +38,13 @@ class PropFromShellStep(PrefixableStep):
         interrupt_signal="TERM",
         env_vars: list[tuple] = None,
     ):
-        if env_vars is None:
-            env_vars = []
-        self.command = command
-        self.interrupt_signal = interrupt_signal
         self.property = property
-        assert isinstance(command, Command)
-        name = f"Set {self.property} from {command.name}"
-        super().__init__(name, options, env_vars=env_vars)
-        self.prefix_cmd = []
-
-    def add_cmd_prefix(self, command):
-        self.prefix_cmd.extend(command)
+        super().__init__(
+            command=command,
+            options=options,
+            interrupt_signal=interrupt_signal,
+            env_vars=env_vars,
+        )
 
     def generate(self):
         return steps.SetPropertyFromCommand(

@@ -32,12 +32,3 @@ class BaseStep(ABC):
 
     @abstractmethod
     def generate(self): ...
-
-
-class PrefixableStep(BaseStep):
-    def __init__(self, name: str, options: StepOptions, env_vars: list[tuple]):
-        self.env_vars = env_vars
-        super().__init__(name, options)
-
-    @abstractmethod
-    def add_cmd_prefix(self, command: Command): ...

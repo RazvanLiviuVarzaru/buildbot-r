@@ -1,9 +1,9 @@
 from buildbot.plugins import steps
-from configuration.steps.base import PrefixableStep, StepOptions
+from configuration.steps.base import BaseStep, StepOptions
 from configuration.steps.commands.base import Command
 
 
-class MasterShellStep(PrefixableStep):
+class MasterShellStep(BaseStep):
     def __init__(
         self,
         command: Command,
@@ -15,12 +15,10 @@ class MasterShellStep(PrefixableStep):
             env_vars = []
         self.command = command
         self.interrupt_signal = interrupt_signal
+        self.env_vars = env_vars
         assert isinstance(command, Command)
-        super().__init__(command.name, options, env_vars=env_vars)
+        super().__init__(command.name, options)
         self.prefix_cmd = []
-
-    def add_cmd_prefix(self, command):
-        self.prefix_cmd.extend(command)
 
     def generate(self):
         return steps.MasterShellCommand(

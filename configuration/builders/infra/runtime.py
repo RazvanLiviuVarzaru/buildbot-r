@@ -1,11 +1,11 @@
-import os
 from dataclasses import dataclass
 from pathlib import Path, PurePath
 from typing import Iterable
 
 from buildbot.interfaces import IBuildStep
 from buildbot.plugins import steps, util
-from configuration.steps.base import PrefixableStep, BaseStep
+from configuration.steps.base import BaseStep
+from configuration.steps.remote import ShellStep
 import copy
 
 
@@ -44,13 +44,15 @@ class DockerConfig:
 
 
 class InContainer:
-    def __new__(cls, step: PrefixableStep, docker_environment: DockerConfig, container_commit: bool = False) -> PrefixableStep:
+    def __new__(cls, step: ShellStep, docker_environment: DockerConfig, container_commit: bool = False) -> ShellStep:
+        assert isinstance(step, ShellStep), "InContainer wrapper only works with ShellStep or its subclasses"
+        cmd_prefix = []
         step = copy.deepcopy(step)
         step.run_in_container = True,
         step.container_commit = container_commit
         step.docker_environment = docker_environment
 
-        step.add_cmd_prefix(
+        cmd_prefix.append(
             [
                 "docker",
                 "run",
@@ -62,7 +64,7 @@ class InContainer:
             ]
         )
         # Mandatory volume mount for state sharing between steps
-        step.add_cmd_prefix(
+        cmd_prefix.append(
             [
                 "--mount",
                 docker_environment.volumemount,
@@ -70,11 +72,11 @@ class InContainer:
         )
 
         if not container_commit:
-            step.add_cmd_prefix(["--rm"])
+            cmd_prefix.append(["--rm"])
 
         # User defined bind mounts
         for src, dst in docker_environment.bind_mounts:
-            step.add_cmd_prefix(
+            cmd_prefix.append(
                 [
                     "--mount",
                     f"type=bind,src={src},dst={dst}",
@@ -86,18 +88,20 @@ class InContainer:
         # Step variables override global variables
         env_vars.update(step.env_vars)
         for variable, value in env_vars.items():
-            step.add_cmd_prefix(["-e", util.Interpolate(f"{variable}={value}")])
+            cmd_prefix.append(["-e", util.Interpolate(f"{variable}={value}")])
 
-        step.add_cmd_prefix([f"--shm-size={docker_environment.shm_size}"])
+        cmd_prefix.append([f"--shm-size={docker_environment.shm_size}"])
 
         path = docker_environment.workdir / step.command.workdir
         # Absolute command workdir overrides basedir.
         if step.command.workdir.is_absolute():
             path = step.command.workdir
 
-        step.add_cmd_prefix(["-w", path.as_posix()])
+        cmd_prefix.append(["-w", path.as_posix()])
 
-        step.add_cmd_prefix([docker_environment.image])
+        cmd_prefix.append([docker_environment.image])
+
+        step.prefix_cmd.extend(cmd_prefix)
 
         return step
 
