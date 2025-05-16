@@ -1,6 +1,6 @@
 from pathlib import PurePath
 
-from configuration.builders.infra.runtime import BuildSequence
+from configuration.builders.infra.runtime import BuildSequence, InContainer
 from configuration.steps.base import StepOptions
 from configuration.steps.commands.compile import (
     MAKE,
@@ -41,147 +41,147 @@ from utils import hasFailed, hasPackagesGenerated, savePackageIfBranchMatch
 MTR_PATH_TO_SAVE_LOGS = PurePath("/home/buildbot/mtr/logs")
 
 
-def deb_autobake(
-    config,
-    jobs,
-    buildername,
-    artifacts_url,
-    test_galera=False,
-    test_rocksdb=False,
-    test_s3=False,
-):
-    ### INIT
-    MTR_RUNNER_PATH = PurePath("/usr/share/mariadb/mariadb-test")
-    sequence = BuildSequence(docker_environment=config)
+# def deb_autobake(
+#     config,
+#     jobs,
+#     buildername,
+#     artifacts_url,
+#     test_galera=False,
+#     test_rocksdb=False,
+#     test_s3=False,
+# ):
+#     ### INIT
+#     MTR_RUNNER_PATH = PurePath("/usr/share/mariadb/mariadb-test")
+#     sequence = BuildSequence(docker_environment=config)
 
-    ### ADD STEPS
-    sequence.add_step(
-        ShellStep(
-            command=PrintEnvironmentDetails(),
-            run_in_container=False,
-        )
-    )
+#     ### ADD STEPS
+#     sequence.add_step(
+#         ShellStep(
+#             command=PrintEnvironmentDetails(),
+#             run_in_container=False,
+#         )
+#     )
 
-    sequence.add_step(
-        ShellStep(
-            command=FetchTarball(workdir=PurePath("build/debian")),
-            run_in_container=True,
-        )
-    ),
-    sequence.add_step(
-        ShellStep(
-            command=CompileDebAutobake(workdir=PurePath("build/debian")),
-            env_vars=[
-                ("DEB_BUILD_OPTIONS", "parallel=%s" % jobs),
-            ],
-            run_in_container=True,
-        ),
-    )
+#     sequence.add_step(
+#         ShellStep(
+#             command=FetchTarball(workdir=PurePath("build/debian")),
+#             run_in_container=True,
+#         )
+#     ),
+    # sequence.add_step(
+    #     ShellStep(
+    #         command=CompileDebAutobake(workdir=PurePath("build/debian")),
+    #         env_vars=[
+    #             ("DEB_BUILD_OPTIONS", "parallel=%s" % jobs),
+    #         ],
+    #         run_in_container=True,
+    #     ),
+    # )
 
-    sequence.add_step(
-        PropFromShellStep(
-            command=FindFiles(
-                include="*",
-                workdir=PurePath("build"),
-            ),
-            property="packages",
-            run_in_container=True,
-        ),
-    )
+    # sequence.add_step(
+    #     PropFromShellStep(
+    #         command=FindFiles(
+    #             include="*",
+    #             workdir=PurePath("build"),
+    #         ),
+    #         property="packages",
+    #         run_in_container=True,
+    #     ),
+    # )
 
-    sequence.add_step(
-        ShellStep(
-            command=CreateDebRepo(
-                url=artifacts_url,
-                buildername=buildername,
-                workdir=PurePath("build"),
-            ),
-            run_in_container=True,
-            container_commit=True,
-        ),
-    )
+    # sequence.add_step(
+    #     ShellStep(
+    #         command=CreateDebRepo(
+    #             url=artifacts_url,
+    #             buildername=buildername,
+    #             workdir=PurePath("build"),
+    #         ),
+    #         run_in_container=True,
+    #         container_commit=True,
+    #     ),
+    # )
 
-    sequence.add_step(
-        ShellStep(
-            command=InstallDEB(
-                workdir=PurePath("build/debs"), packages_file="Packages"
-            ),
-            run_in_container=True,
-            container_commit=True,
-        ),
-    )
+    # sequence.add_step(
+    #     ShellStep(
+    #         command=InstallDEB(
+    #             workdir=PurePath("build/debs"), packages_file="Packages"
+    #         ),
+    #         run_in_container=True,
+    #         container_commit=True,
+    #     ),
+    # )
 
-    ## ADD MTR TESTS
-    # Add normal MTR tests
-    for step in get_mtr_normal_steps(
-        jobs=jobs,
-        path_to_test_runner=MTR_RUNNER_PATH,
-        halt_on_failure=False,
-    ):
-        sequence.add_step(step)
+    # ## ADD MTR TESTS
+    # # Add normal MTR tests
+    # for step in get_mtr_normal_steps(
+    #     jobs=jobs,
+    #     path_to_test_runner=MTR_RUNNER_PATH,
+    #     halt_on_failure=False,
+    # ):
+    #     sequence.add_step(step)
 
-    # Add S3 MTR tests
-    if test_s3:
-        for step in get_mtr_s3_steps(
-            buildername=buildername,
-            jobs=jobs,
-            path_to_test_runner=MTR_RUNNER_PATH,
-            halt_on_failure=False,
-            run_in_container=True,
-        ):
-            sequence.add_step(step)
+    # # Add S3 MTR tests
+    # if test_s3:
+    #     for step in get_mtr_s3_steps(
+    #         buildername=buildername,
+    #         jobs=jobs,
+    #         path_to_test_runner=MTR_RUNNER_PATH,
+    #         halt_on_failure=False,
+    #         run_in_container=True,
+    #     ):
+    #         sequence.add_step(step)
 
-    # Add rocksdb MTR tests
-    if test_rocksdb:
-        for step in get_mtr_rocksdb_steps(
-            jobs=jobs,
-            path_to_test_runner=MTR_RUNNER_PATH,
-            halt_on_failure=False,
-        ):
-            sequence.add_step(step)
+    # # Add rocksdb MTR tests
+    # if test_rocksdb:
+    #     for step in get_mtr_rocksdb_steps(
+    #         jobs=jobs,
+    #         path_to_test_runner=MTR_RUNNER_PATH,
+    #         halt_on_failure=False,
+    #     ):
+    #         sequence.add_step(step)
 
-    # Add galera MTR tests
-    if test_galera:
-        for step in get_mtr_galera_steps(
-            jobs=jobs,
-            path_to_test_runner=MTR_RUNNER_PATH,
-            halt_on_failure=False,
-        ):
-            sequence.add_step(step)
+    # # Add galera MTR tests
+    # if test_galera:
+    #     for step in get_mtr_galera_steps(
+    #         jobs=jobs,
+    #         path_to_test_runner=MTR_RUNNER_PATH,
+    #         halt_on_failure=False,
+    #     ):
+    #         sequence.add_step(step)
 
-    ## POST-TEST STEPS
-    sequence.add_step(
-        ShellStep(
-            command=SavePackages(
-                packages=["mariadb.sources", "debs"],
-                workdir=PurePath("build"),
-            ),
-            options=StepOptions(
-                doStepIf=(
-                    lambda step: hasPackagesGenerated(step)
-                    and savePackageIfBranchMatch(step, SAVED_PACKAGE_BRANCHES)
-                )
-            ),
-            run_in_container=True,
-        ),
-    )
+    # ## POST-TEST STEPS
+    # sequence.add_step(
+    #     ShellStep(
+    #         command=SavePackages(
+    #             packages=["mariadb.sources", "debs"],
+    #             workdir=PurePath("build"),
+    #         ),
+    #         options=StepOptions(
+    #             doStepIf=(
+    #                 lambda step: hasPackagesGenerated(step)
+    #                 and savePackageIfBranchMatch(step, SAVED_PACKAGE_BRANCHES)
+    #             )
+    #         ),
+    #         run_in_container=True,
+    #     ),
+    # )
 
-    sequence.add_step(
-        ShellStep(
-            command=SaveCompressedTar(
-                name="Save failed MTR logs",
-                workdir=PurePath("/home/buildbot/mtr"),
-                archive_name="logs",
-                destination="/packages/%(prop:tarbuildnum)s/logs/%(prop:buildername)s",
-            ),
-            options=StepOptions(
-                alwaysRun=True, doStepIf=(lambda step: hasFailed(step))
-            ),
-            run_in_container=True,
-        ),
-    )
+    # sequence.add_step(
+    #     ShellStep(
+    #         command=SaveCompressedTar(
+    #             name="Save failed MTR logs",
+    #             workdir=PurePath("/home/buildbot/mtr"),
+    #             archive_name="logs",
+    #             destination="/packages/%(prop:tarbuildnum)s/logs/%(prop:buildername)s",
+    #         ),
+    #         options=StepOptions(
+    #             alwaysRun=True, doStepIf=(lambda step: hasFailed(step))
+    #         ),
+    #         run_in_container=True,
+    #     ),
+    # )
 
-    return sequence
+    # return sequence
 
 
 def rpm_autobake(
@@ -202,190 +202,194 @@ def rpm_autobake(
         "padding_for_CPACK_RPM_BUILD_SOURCE_DIRS_PREFIX"
     )
     MTR_RUNNER_PATH = PurePath("/usr/share/mariadb-test")
-    sequence = BuildSequence(docker_environment=config)
+    sequence = BuildSequence()
 
     ### ADD STEPS
     sequence.add_step(
         ShellStep(
             command=PrintEnvironmentDetails(),
-            run_in_container=False,
         )
     )
 
-    if has_compat:
-        sequence.add_step(
-            ShellStep(
-                command=FetchCompat(
-                    rpm_type=rpm_type,
-                    arch=arch,
-                    url=artifacts_url,
-                ),
-                run_in_container=True,
-            )
-        )
+    # if has_compat:
+    #     sequence.add_step(
+    #         ShellStep(
+    #             command=FetchCompat(
+    #                 rpm_type=rpm_type,
+    #                 arch=arch,
+    #                 url=artifacts_url,
+    #             ),
+    #             run_in_container=True,
+    #         )
+    #     )
+
     sequence.add_step(
-        ShellStep(
-            command=FetchTarball(workdir=RPM_AUTOBAKE_BASE_WORKDIR),
-            run_in_container=True,
+        InContainer(
+            docker_environment=config,
+            container_commit = False,
+            step = ShellStep(
+                command=FetchTarball(workdir=RPM_AUTOBAKE_BASE_WORKDIR),
         ),
     )
 
-    sequence.add_step(
-        ShellStep(
-            command=ConfigureMariaDBCMake(
-                name="mysql_release",
-                cmake_generator=CMakeGenerator(
-                    use_ccache=True,
-                    flags=[
-                        CMakeOption(OTHER.BUILD_CONFIG, BuildConfig.MYSQL_RELEASE),
-                        CMakeOption(OTHER.RPM, rpm_type),
-                    ],
-                ),
-                workdir=RPM_AUTOBAKE_BASE_WORKDIR,
-            ),
-            run_in_container=True,
-        ),
     )
 
-    sequence.add_step(
-        ShellStep(
-            command=CompileMakeCommand(
-                option=MAKE.COMPILE,
-                jobs=jobs,
-                verbose=False,
-                workdir=RPM_AUTOBAKE_BASE_WORKDIR,
-            ),
-            run_in_container=True,
-        ),
-    )
+    # sequence.add_step(
+    #     ShellStep(
+    #         command=ConfigureMariaDBCMake(
+    #             name="mysql_release",
+    #             cmake_generator=CMakeGenerator(
+    #                 use_ccache=True,
+    #                 flags=[
+    #                     CMakeOption(OTHER.BUILD_CONFIG, BuildConfig.MYSQL_RELEASE),
+    #                     CMakeOption(OTHER.RPM, rpm_type),
+    #                 ],
+    #             ),
+    #             workdir=RPM_AUTOBAKE_BASE_WORKDIR,
+    #         ),
+    #         run_in_container=True,
+    #     ),
+    # )
 
-    sequence.add_step(
-        ShellStep(
-            command=CompileMakeCommand(
-                option=MAKE.PACKAGE,
-                jobs=jobs,
-                verbose=False,
-                workdir=RPM_AUTOBAKE_BASE_WORKDIR,
-            ),
-            run_in_container=True,
-        ),
-    )
+    # sequence.add_step(
+    #     ShellStep(
+    #         command=CompileMakeCommand(
+    #             option=MAKE.COMPILE,
+    #             jobs=jobs,
+    #             verbose=False,
+    #             workdir=RPM_AUTOBAKE_BASE_WORKDIR,
+    #         ),
+    #         run_in_container=True,
+    #     ),
+    # )
 
-    sequence.add_step(
-        ShellStep(
-            command=CompileMakeCommand(
-                option=MAKE.SOURCE,
-                jobs=jobs,
-                verbose=False,
-                workdir=RPM_AUTOBAKE_BASE_WORKDIR,
-            ),
-            run_in_container=True,
-        ),
-    )
+    # sequence.add_step(
+    #     ShellStep(
+    #         command=CompileMakeCommand(
+    #             option=MAKE.PACKAGE,
+    #             jobs=jobs,
+    #             verbose=False,
+    #             workdir=RPM_AUTOBAKE_BASE_WORKDIR,
+    #         ),
+    #         run_in_container=True,
+    #     ),
+    # )
 
-    sequence.add_step(
-        PropFromShellStep(
-            command=FindFiles(
-                include="*.rpm",
-                exclude="*.src.rpm",
-                workdir=RPM_AUTOBAKE_BASE_WORKDIR,
-            ),
-            property="packages",
-            run_in_container=True,
-        ),
-    )
+    # sequence.add_step(
+    #     ShellStep(
+    #         command=CompileMakeCommand(
+    #             option=MAKE.SOURCE,
+    #             jobs=jobs,
+    #             verbose=False,
+    #             workdir=RPM_AUTOBAKE_BASE_WORKDIR,
+    #         ),
+    #         run_in_container=True,
+    #     ),
+    # )
 
-    sequence.add_step(
-        ShellStep(
-            command=InstallRPMFromProp(
-                workdir=RPM_AUTOBAKE_BASE_WORKDIR,
-                property_name="packages",
-            ),
-            run_in_container=True,
-            container_commit=True,
-        ),
-    )
+    # sequence.add_step(
+    #     PropFromShellStep(
+    #         command=FindFiles(
+    #             include="*.rpm",
+    #             exclude="*.src.rpm",
+    #             workdir=RPM_AUTOBAKE_BASE_WORKDIR,
+    #         ),
+    #         property="packages",
+    #         run_in_container=True,
+    #     ),
+    # )
 
-    ## ADD MTR TESTS
-    # Add normal MTR tests
-    for step in get_mtr_normal_steps(
-        jobs=jobs,
-        path_to_test_runner=MTR_RUNNER_PATH,
-        halt_on_failure=False,
-    ):
-        sequence.add_step(step)
+    # sequence.add_step(
+    #     ShellStep(
+    #         command=InstallRPMFromProp(
+    #             workdir=RPM_AUTOBAKE_BASE_WORKDIR,
+    #             property_name="packages",
+    #         ),
+    #         run_in_container=True,
+    #         container_commit=True,
+    #     ),
+    # )
 
-    # Add S3 MTR tests
-    if test_s3:
-        for step in get_mtr_s3_steps(
-            buildername=buildername,
-            jobs=jobs,
-            path_to_test_runner=MTR_RUNNER_PATH,
-            halt_on_failure=False,
-        ):
-            sequence.add_step(step)
+    # ## ADD MTR TESTS
+    # # Add normal MTR tests
+    # for step in get_mtr_normal_steps(
+    #     jobs=jobs,
+    #     path_to_test_runner=MTR_RUNNER_PATH,
+    #     halt_on_failure=False,
+    # ):
+    #     sequence.add_step(step)
 
-    # Add rocksdb MTR tests
-    if test_rocksdb:
-        for step in get_mtr_rocksdb_steps(
-            jobs=jobs,
-            path_to_test_runner=MTR_RUNNER_PATH,
-            halt_on_failure=False,
-        ):
-            sequence.add_step(step)
+    # # Add S3 MTR tests
+    # if test_s3:
+    #     for step in get_mtr_s3_steps(
+    #         buildername=buildername,
+    #         jobs=jobs,
+    #         path_to_test_runner=MTR_RUNNER_PATH,
+    #         halt_on_failure=False,
+    #     ):
+    #         sequence.add_step(step)
 
-    # Add galera MTR tests
-    if test_galera:
-        for step in get_mtr_galera_steps(
-            jobs=jobs,
-            path_to_test_runner=MTR_RUNNER_PATH,
-            halt_on_failure=False,
-        ):
-            sequence.add_step(step)
+    # # Add rocksdb MTR tests
+    # if test_rocksdb:
+    #     for step in get_mtr_rocksdb_steps(
+    #         jobs=jobs,
+    #         path_to_test_runner=MTR_RUNNER_PATH,
+    #         halt_on_failure=False,
+    #     ):
+    #         sequence.add_step(step)
 
-    ## POST-TEST STEPS
-    sequence.add_step(
-        ShellStep(
-            command=CreateRpmRepo(
-                rpm_type=rpm_type,
-                url=artifacts_url,
-                workdir=RPM_AUTOBAKE_BASE_WORKDIR,
-            ),
-            run_in_container=True,
-            container_commit=True,
-        ),
-    )
+    # # Add galera MTR tests
+    # if test_galera:
+    #     for step in get_mtr_galera_steps(
+    #         jobs=jobs,
+    #         path_to_test_runner=MTR_RUNNER_PATH,
+    #         halt_on_failure=False,
+    #     ):
+    #         sequence.add_step(step)
 
-    sequence.add_step(
-        ShellStep(
-            command=SavePackages(
-                packages=["MariaDB.repo", "rpms", "srpms"],
-                workdir=RPM_AUTOBAKE_BASE_WORKDIR,
-                destination="/packages/%(prop:tarbuildnum)s/%(prop:buildername)s",
-            ),
-            options=StepOptions(
-                doStepIf=(
-                    lambda step: hasPackagesGenerated(step)
-                    and savePackageIfBranchMatch(step, SAVED_PACKAGE_BRANCHES)
-                )
-            ),
-        ),
-    )
+    # ## POST-TEST STEPS
+    # sequence.add_step(
+    #     ShellStep(
+    #         command=CreateRpmRepo(
+    #             rpm_type=rpm_type,
+    #             url=artifacts_url,
+    #             workdir=RPM_AUTOBAKE_BASE_WORKDIR,
+    #         ),
+    #         run_in_container=True,
+    #         container_commit=True,
+    #     ),
+    # )
 
-    sequence.add_step(
-        ShellStep(
-            command=SaveCompressedTar(
-                name="Save failed MTR logs",
-                workdir=PurePath("/home/buildbot/mtr"),
-                archive_name="logs",
-                destination="/packages/%(prop:tarbuildnum)s/logs/%(prop:buildername)s",
-            ),
-            options=StepOptions(
-                alwaysRun=True, doStepIf=(lambda step: hasFailed(step))
-            ),
-            run_in_container=True,
-        )
-    )
+    # sequence.add_step(
+    #     ShellStep(
+    #         command=SavePackages(
+    #             packages=["MariaDB.repo", "rpms", "srpms"],
+    #             workdir=RPM_AUTOBAKE_BASE_WORKDIR,
+    #             destination="/packages/%(prop:tarbuildnum)s/%(prop:buildername)s",
+    #         ),
+    #         options=StepOptions(
+    #             doStepIf=(
+    #                 lambda step: hasPackagesGenerated(step)
+    #                 and savePackageIfBranchMatch(step, SAVED_PACKAGE_BRANCHES)
+    #             )
+    #         ),
+    #     ),
+    # )
+
+    # sequence.add_step(
+    #     ShellStep(
+    #         command=SaveCompressedTar(
+    #             name="Save failed MTR logs",
+    #             workdir=PurePath("/home/buildbot/mtr"),
+    #             archive_name="logs",
+    #             destination="/packages/%(prop:tarbuildnum)s/logs/%(prop:buildername)s",
+    #         ),
+    #         options=StepOptions(
+    #             alwaysRun=True, doStepIf=(lambda step: hasFailed(step))
+    #         ),
+    #         run_in_container=True,
+    #     )
+    # )
 
     return sequence
 

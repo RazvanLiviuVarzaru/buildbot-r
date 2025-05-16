@@ -10,8 +10,6 @@ class ShellStep(PrefixableStep):
         options: StepOptions = None,
         interrupt_signal="TERM",
         env_vars: list[tuple] = None,
-        run_in_container: bool = False,
-        container_commit: bool = False,
     ):
         if env_vars is None:
             env_vars = []
@@ -19,8 +17,6 @@ class ShellStep(PrefixableStep):
         self.interrupt_signal = interrupt_signal
         assert isinstance(command, Command)
         super().__init__(command.name, options, env_vars=env_vars)
-        self.run_in_container = run_in_container
-        self.container_commit = container_commit
         self.prefix_cmd = []
 
     def add_cmd_prefix(self, command):
@@ -43,8 +39,6 @@ class PropFromShellStep(PrefixableStep):
         options: StepOptions = None,
         interrupt_signal="TERM",
         env_vars: list[tuple] = None,
-        run_in_container: bool = False,
-        container_commit: bool = False,
     ):
         if env_vars is None:
             env_vars = []
@@ -54,8 +48,6 @@ class PropFromShellStep(PrefixableStep):
         assert isinstance(command, Command)
         name = f"Set {self.property} from {command.name}"
         super().__init__(name, options, env_vars=env_vars)
-        self.run_in_container = run_in_container
-        self.container_commit = container_commit
         self.prefix_cmd = []
 
     def add_cmd_prefix(self, command):

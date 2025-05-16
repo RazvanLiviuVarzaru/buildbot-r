@@ -22,10 +22,9 @@ class StepOptions:  # all step (shell, compile, etc) types support these options
 class BaseStep(ABC):
     def __init__(self, name: str, options: Optional[StepOptions] = None):
         self.name = name
-        # Only classes that can implement steps capable of running in a
-        # container should accept *container* options as constructor arguments
         self.run_in_container = False
         self.container_commit = False
+        self.docker_environment = None
         self.options = options
         if self.options is None:
             self.options = StepOptions()  # Load default options
