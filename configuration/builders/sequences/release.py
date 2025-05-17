@@ -192,7 +192,7 @@ def deb_autobake(
             step=ShellStep(
                 command=SaveCompressedTar(
                     name="Save failed MTR logs",
-                    workdir=PurePath("/home/buildbot/mtr"),
+                    workdir=PurePath("mtr"),
                     archive_name="logs",
                     destination="/packages/%(prop:tarbuildnum)s/logs/%(prop:buildername)s",
                 ),
@@ -431,7 +431,7 @@ def rpm_autobake(
             step=ShellStep(
                 command=SaveCompressedTar(
                     name="Save failed MTR logs",
-                    workdir=PurePath("/home/buildbot/mtr"),
+                    workdir=PurePath("mtr"),
                     archive_name="logs",
                     destination="/packages/%(prop:tarbuildnum)s/logs/%(prop:buildername)s",
                 ),
