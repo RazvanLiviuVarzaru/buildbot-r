@@ -124,7 +124,7 @@ class CreateDockerWorkdirs(steps.ShellCommand):
 class CleanupDockerResources(steps.ShellCommand):
     def __init__(self, name, config: DockerConfig):
         super().__init__(
-            name=f"Cleanup Docker resources - {name} run",
+            name=f"Cleanup Docker resources - {name}",
             command=[
                 "bash",
                 "-ec",
@@ -171,7 +171,7 @@ class ContainerCommit(steps.ShellCommand):
                 "-c",
                 (
                     "docker container commit "
-                    f"--message {step_name} {config.container_name} "
+                    f"""--message "{step_name}" {config.container_name} """
                     f"{config.runtime_tag} && "
                     f"docker rm {config.container_name}"
                 ),
@@ -185,7 +185,7 @@ class ContainerCommit(steps.ShellCommand):
 class CleanupWorkerDir(steps.ShellCommand):
     def __init__(self, name):
         super().__init__(
-            name=f"Cleanup Worker Directory - {name} run",
+            name=f"Cleanup Worker Directory - {name}",
             command="rm -r * .* 2> /dev/null || true",
             alwaysRun=True,
         )

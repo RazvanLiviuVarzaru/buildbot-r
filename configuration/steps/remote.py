@@ -59,6 +59,8 @@ class PropFromShellStep(ShellStep):
             interrupt_signal=interrupt_signal,
             env_vars=env_vars,
         )
+        self.name = f"Set {self.property} from {command.name}"
+
 
     def generate(self):
         workdir = self._set_workdir()
