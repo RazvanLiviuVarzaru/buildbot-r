@@ -41,6 +41,10 @@ class DockerConfig:
     @property
     def volumemount(self):
         return f"type=volume,src={self.container_name},dst={self.workdir}"
+    
+    @property
+    def runtime_tag(self) -> str:
+        return f"buildbot:{self.container_name}"
 
 
 class InContainer:
@@ -99,7 +103,7 @@ class InContainer:
 
         cmd_prefix.append(["-w", path.as_posix()])
 
-        cmd_prefix.append([docker_environment.image])
+        cmd_prefix.append([docker_environment.runtime_tag])
 
         step.prefix_cmd.extend(cmd_prefix)
 
@@ -111,7 +115,7 @@ class CreateDockerWorkdirs(steps.ShellCommand):
             name=f"Create Docker Workdirs",
             command=(
                 "docker run --rm "
-                f"--mount{config.volumemount} "
+                f"--mount {config.volumemount} "
                 f"{config.image} mkdir -p . {' '.join(workdirs)} "
             ),
             haltOnFailure=True,
@@ -128,7 +132,7 @@ class CleanupDockerResources(steps.ShellCommand):
                 (
                     docker rm --force {config.container_name};
                     docker volume rm {config.container_name};
-                    docker image rm buildbot:{config.container_name};
+                    docker image rm {config.runtime_tag};
                 ) || true
                 """,
             ],
@@ -151,8 +155,8 @@ class TagContainerImage(steps.ShellCommand):
                 "bash",
                 "-ec",
                 (
-                    f"docker image rm -f buildbot:{config.container_name} && "
-                    f"docker tag {config.image} buildbot:{config.container_name}"
+                    f"docker image rm -f {config.runtime_tag} && "
+                    f"docker tag {config.image} {config.runtime_tag}"
                 ),
             ],
             haltOnFailure=True,
@@ -168,7 +172,7 @@ class ContainerCommit(steps.ShellCommand):
                 (
                     "docker container commit "
                     f"--message {step_name} {config.container_name} "
-                    f"buildbot:{config.container_name} && "
+                    f"{config.runtime_tag} && "
                     f"docker rm {config.container_name}"
                 ),
             ],

@@ -21,25 +21,26 @@ class ShellStep(BaseStep):
         self.prefix_cmd = []
 
     def generate(self):
-        self._set_workdir()
+        workdir = self._set_workdir()
         return steps.ShellCommand(
             name=self.name,
             command=[*self.prefix_cmd, *self.command.as_cmd_arg()],
             interruptSignal=self.interrupt_signal,
             **self.options.getopt,
-            workdir=self.workdir,
+            workdir=workdir,
         )
     
     def _set_workdir(self):
         # Assume it's a docker environment and default to worker build dir
         # because docker will set the workdir via -w to the running container
-        self.workdir = "build"
+        workdir = "build"
         # Running on the worker host requires changing the workdir
         if not self.run_in_container:
             if self.command.workdir.is_absolute():
-                self.workdir = self.command.workdir
+                workdir = self.command.workdir
             else:
-                self.workdir = "build" / self.command.workdir
+                workdir = "build" / self.command.workdir
+        return str(workdir)
 
 
 class PropFromShellStep(ShellStep):
@@ -60,12 +61,12 @@ class PropFromShellStep(ShellStep):
         )
 
     def generate(self):
-        self._set_workdir()
+        workdir = self._set_workdir()
         return steps.SetPropertyFromCommand(
             name=self.name,
             command=[*self.prefix_cmd, *self.command.as_cmd_arg()],
             interruptSignal=self.interrupt_signal,
             property=self.property,
             **self.options.getopt,
-            workdir=self.workdir,
+            workdir=workdir,
         )
