@@ -1,5 +1,6 @@
 from collections import defaultdict
 
+from buildbot.interfaces import IWorker
 from buildbot.plugins import worker
 from configuration.workers.base import WorkerBase
 
@@ -13,7 +14,7 @@ class WorkerPool:
         self.workers[arch].append(worker.name)
         self.instances.append(worker.instance)
 
-    def get_workers_for_arch(self, arch, filter_fn=None):
+    def get_workers_for_arch(self, arch: str, filter_fn: str = None) -> list:
         result = list(filter(filter_fn, self.workers[arch]))
         if not result:
             raise ValueError(f"No workers found for architecture: {arch}")
@@ -21,7 +22,9 @@ class WorkerPool:
 
 
 class NonLatent(WorkerBase):
-    def __init__(self, name, config, total_jobs, max_builds=999):
+    def __init__(
+        self, name: str, config: dict[str, dict], total_jobs: int, max_builds=999
+    ):
         self.instance = None
         self.config = config
         self.max_builds = max_builds
@@ -37,5 +40,5 @@ class NonLatent(WorkerBase):
             properties=self.properties,
         )
 
-    def _get_password(self):
+    def _get_password(self) -> str:
         return self.config["private"]["worker_pass"][self.name]
