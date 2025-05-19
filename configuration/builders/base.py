@@ -9,12 +9,12 @@ from buildbot.process.factory import BuildFactory
 from buildbot.process.workerforbuilder import AbstractWorkerForBuilder
 from configuration.builders.infra.runtime import (
     BuildSequence,
-    CleanupWorkerDir,
     CleanupDockerResources,
-    FetchContainerImage,
-    TagContainerImage,
+    CleanupWorkerDir,
     ContainerCommit,
     CreateDockerWorkdirs,
+    FetchContainerImage,
+    TagContainerImage,
 )
 from configuration.workers.base import WorkerBase
 

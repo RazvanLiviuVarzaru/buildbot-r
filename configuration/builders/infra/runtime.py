@@ -1,3 +1,4 @@
+import copy
 from dataclasses import dataclass
 from pathlib import Path, PurePath
 from typing import Iterable
@@ -6,7 +7,6 @@ from buildbot.interfaces import IBuildStep
 from buildbot.plugins import steps, util
 from configuration.steps.base import BaseStep
 from configuration.steps.remote import ShellStep
-import copy
 
 
 class BuildSequence:
