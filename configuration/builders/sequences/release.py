@@ -55,15 +55,14 @@ def deb_autobake(
     sequence = BuildSequence()
 
     ### ADD STEPS
-    sequence.add_step(
-        ShellStep(command=PrintEnvironmentDetails()))
+    sequence.add_step(ShellStep(command=PrintEnvironmentDetails()))
 
     sequence.add_step(
         InContainer(
             docker_environment=config,
             step=ShellStep(
                 command=FetchTarball(workdir=PurePath("build/debian")),
-            )
+            ),
         ),
     )
 
@@ -124,9 +123,7 @@ def deb_autobake(
         jobs=jobs,
         path_to_test_runner=MTR_RUNNER_PATH,
         halt_on_failure=False,
-        step_wrapping_fn= lambda step: InContainer(
-            docker_environment=config,
-            step=step)
+        step_wrapping_fn=lambda step: InContainer(docker_environment=config, step=step),
     ):
         sequence.add_step(step)
 
@@ -137,9 +134,9 @@ def deb_autobake(
             jobs=jobs,
             path_to_test_runner=MTR_RUNNER_PATH,
             halt_on_failure=False,
-            step_wrapping_fn= lambda step: InContainer(
-                docker_environment=config,
-                step=step)
+            step_wrapping_fn=lambda step: InContainer(
+                docker_environment=config, step=step
+            ),
         ):
             sequence.add_step(step)
 
@@ -149,9 +146,9 @@ def deb_autobake(
             jobs=jobs,
             path_to_test_runner=MTR_RUNNER_PATH,
             halt_on_failure=False,
-            step_wrapping_fn= lambda step: InContainer(
-                docker_environment=config,
-                step=step)
+            step_wrapping_fn=lambda step: InContainer(
+                docker_environment=config, step=step
+            ),
         ):
             sequence.add_step(step)
 
@@ -161,9 +158,9 @@ def deb_autobake(
             jobs=jobs,
             path_to_test_runner=MTR_RUNNER_PATH,
             halt_on_failure=False,
-            step_wrapping_fn= lambda step: InContainer(
-                docker_environment=config,
-                step=step)
+            step_wrapping_fn=lambda step: InContainer(
+                docker_environment=config, step=step
+            ),
         ):
             sequence.add_step(step)
 
@@ -227,8 +224,7 @@ def rpm_autobake(
     sequence = BuildSequence()
 
     ### ADD STEPS
-    sequence.add_step(
-        ShellStep(command=PrintEnvironmentDetails()))
+    sequence.add_step(ShellStep(command=PrintEnvironmentDetails()))
 
     if has_compat:
         sequence.add_step(
@@ -240,18 +236,18 @@ def rpm_autobake(
                         arch=arch,
                         url=artifacts_url,
                     ),
-                )
+                ),
             )
         )
 
     sequence.add_step(
         InContainer(
             docker_environment=config,
-            container_commit = False,
-            step = ShellStep(
+            container_commit=False,
+            step=ShellStep(
                 command=FetchTarball(workdir=RPM_AUTOBAKE_BASE_WORKDIR),
-        ),
-    )
+            ),
+        )
     )
 
     sequence.add_step(
@@ -348,9 +344,7 @@ def rpm_autobake(
         jobs=jobs,
         path_to_test_runner=MTR_RUNNER_PATH,
         halt_on_failure=False,
-        step_wrapping_fn= lambda step: InContainer(
-            docker_environment=config,
-            step=step)
+        step_wrapping_fn=lambda step: InContainer(docker_environment=config, step=step),
     ):
         sequence.add_step(step)
 
@@ -361,9 +355,9 @@ def rpm_autobake(
             jobs=jobs,
             path_to_test_runner=MTR_RUNNER_PATH,
             halt_on_failure=False,
-            step_wrapping_fn= lambda step: InContainer(
-                docker_environment=config,
-                step=step)
+            step_wrapping_fn=lambda step: InContainer(
+                docker_environment=config, step=step
+            ),
         ):
             sequence.add_step(step)
 
@@ -373,9 +367,9 @@ def rpm_autobake(
             jobs=jobs,
             path_to_test_runner=MTR_RUNNER_PATH,
             halt_on_failure=False,
-            step_wrapping_fn= lambda step: InContainer(
-                docker_environment=config,
-                step=step)
+            step_wrapping_fn=lambda step: InContainer(
+                docker_environment=config, step=step
+            ),
         ):
             sequence.add_step(step)
 
@@ -385,9 +379,9 @@ def rpm_autobake(
             jobs=jobs,
             path_to_test_runner=MTR_RUNNER_PATH,
             halt_on_failure=False,
-            step_wrapping_fn= lambda step: InContainer(
-                docker_environment=config,
-                step=step)
+            step_wrapping_fn=lambda step: InContainer(
+                docker_environment=config, step=step
+            ),
         ):
             sequence.add_step(step)
 
@@ -438,7 +432,7 @@ def rpm_autobake(
                 options=StepOptions(
                     alwaysRun=True, doStepIf=(lambda step: hasFailed(step))
                 ),
-            )
+            ),
         )
     )
 
@@ -454,7 +448,7 @@ def get_mtr_normal_steps(
     jobs,
     path_to_test_runner: PurePath,
     halt_on_failure: bool = True,
-    step_wrapping_fn = lambda step: step,
+    step_wrapping_fn=lambda step: step,
 ):
     steps = []
     steps.append(
@@ -488,7 +482,7 @@ def get_mtr_rocksdb_steps(
     jobs,
     path_to_test_runner: PurePath,
     halt_on_failure: bool = True,
-    step_wrapping_fn = lambda step: step,
+    step_wrapping_fn=lambda step: step,
 ):
     steps = []
     steps.append(
@@ -524,7 +518,7 @@ def get_mtr_galera_steps(
     jobs,
     path_to_test_runner: PurePath,
     halt_on_failure: bool = True,
-    step_wrapping_fn = lambda step: step,
+    step_wrapping_fn=lambda step: step,
 ):
     steps = []
     steps.append(
@@ -568,7 +562,7 @@ def get_mtr_s3_steps(
     jobs,
     path_to_test_runner: PurePath,
     halt_on_failure: bool = True,
-    step_wrapping_fn = lambda step: step,
+    step_wrapping_fn=lambda step: step,
 ):
     steps = []
     steps.append(

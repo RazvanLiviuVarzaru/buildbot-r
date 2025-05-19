@@ -110,10 +110,12 @@ class SavePackages(Command):
         result = [
             "bash",
             "-ec",
-            util.Interpolate(f"""
+            util.Interpolate(
+                f"""
                 mkdir -p {self.destination} &&
                 cp -r {package_list} {self.destination}
-                """),
+                """
+            ),
         ]
         return result
 

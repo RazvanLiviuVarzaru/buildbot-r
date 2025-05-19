@@ -19,9 +19,11 @@ class BuildSequence:
     def add_step(self, step: BaseStep):
         self.steps.append(step)
 
+
 ## ----------------------------------------------------------------------##
 ##                           Docker Helper Classes                       ##
 ##-----------------------------------------------------------------------##
+
 
 @dataclass
 class DockerConfig:
@@ -41,18 +43,25 @@ class DockerConfig:
     @property
     def volumemount(self):
         return f"type=volume,src={self.container_name},dst={self.workdir}"
-    
+
     @property
     def runtime_tag(self) -> str:
         return f"buildbot:{self.container_name}"
 
 
 class InContainer:
-    def __new__(cls, step: ShellStep, docker_environment: DockerConfig, container_commit: bool = False) -> ShellStep:
-        assert isinstance(step, ShellStep), "InContainer wrapper only works with ShellStep or its subclasses"
+    def __new__(
+        cls,
+        step: ShellStep,
+        docker_environment: DockerConfig,
+        container_commit: bool = False,
+    ) -> ShellStep:
+        assert isinstance(
+            step, ShellStep
+        ), "InContainer wrapper only works with ShellStep or its subclasses"
         cmd_prefix = []
         step = copy.deepcopy(step)
-        step.run_in_container = True,
+        step.run_in_container = (True,)
         step.container_commit = container_commit
         step.docker_environment = docker_environment
 
@@ -109,6 +118,7 @@ class InContainer:
 
         return step
 
+
 class CreateDockerWorkdirs(steps.ShellCommand):
     def __init__(self, config: DockerConfig, workdirs: list[str]):
         super().__init__(
@@ -120,6 +130,7 @@ class CreateDockerWorkdirs(steps.ShellCommand):
             ),
             haltOnFailure=True,
         )
+
 
 class CleanupDockerResources(steps.ShellCommand):
     def __init__(self, name: str, config: DockerConfig):
@@ -138,6 +149,8 @@ class CleanupDockerResources(steps.ShellCommand):
             ],
             alwaysRun=True,
         )
+
+
 class FetchContainerImage(steps.ShellCommand):
     def __init__(self, config: DockerConfig):
         super().__init__(
@@ -162,6 +175,7 @@ class TagContainerImage(steps.ShellCommand):
             haltOnFailure=True,
         )
 
+
 class ContainerCommit(steps.ShellCommand):
     def __init__(self, config: DockerConfig, step_name: str):
         super().__init__(
@@ -178,9 +192,12 @@ class ContainerCommit(steps.ShellCommand):
             ],
             haltOnFailure=True,
         )
+
+
 ## ----------------------------------------------------------------------##
 ##                           Worker Helper Classes                       ##
 ##-----------------------------------------------------------------------##
+
 
 class CleanupWorkerDir(steps.ShellCommand):
     def __init__(self, name: str):

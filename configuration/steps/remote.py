@@ -4,7 +4,6 @@ from configuration.steps.base import StepOptions, BaseStep
 from configuration.steps.commands.base import Command
 
 
-
 class ShellStep(BaseStep):
     def __init__(
         self,
@@ -31,7 +30,7 @@ class ShellStep(BaseStep):
             **self.options.getopt,
             workdir=workdir,
         )
-    
+
     def _set_workdir(self) -> str:
         # Assume it's a docker environment and default to worker build dir
         # because docker will set the workdir via -w to the running container
@@ -62,7 +61,6 @@ class PropFromShellStep(ShellStep):
             env_vars=env_vars,
         )
         self.name = f"Set {self.property} from {command.name}"
-
 
     def generate(self) -> IBuildStep:
         workdir = self._set_workdir()
