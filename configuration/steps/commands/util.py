@@ -49,10 +49,10 @@ class SaveCompressedTar(Command):
         result = [
             "bash",
             "-ec",
-            f"""
+            util.Interpolate(f"""
             mkdir -p {self.destination}
             tar --exclude='.[^/]*' -czvf {self.destination}/{self.archive_name}.tar.gz .;
-            """,
+            """),
         ]
         return result
 
