@@ -1,6 +1,8 @@
+from buildbot.interfaces import IBuildStep
 from buildbot.plugins import steps
 from configuration.steps.base import StepOptions, BaseStep
 from configuration.steps.commands.base import Command
+
 
 
 class ShellStep(BaseStep):
@@ -20,7 +22,7 @@ class ShellStep(BaseStep):
         super().__init__(command.name, options)
         self.prefix_cmd = []
 
-    def generate(self):
+    def generate(self) -> IBuildStep:
         workdir = self._set_workdir()
         return steps.ShellCommand(
             name=self.name,
@@ -30,7 +32,7 @@ class ShellStep(BaseStep):
             workdir=workdir,
         )
     
-    def _set_workdir(self):
+    def _set_workdir(self) -> str:
         # Assume it's a docker environment and default to worker build dir
         # because docker will set the workdir via -w to the running container
         workdir = "build"
@@ -47,7 +49,7 @@ class PropFromShellStep(ShellStep):
     def __init__(
         self,
         command: Command,
-        property,
+        property: str,
         options: StepOptions = None,
         interrupt_signal="TERM",
         env_vars: list[tuple] = None,
@@ -62,7 +64,7 @@ class PropFromShellStep(ShellStep):
         self.name = f"Set {self.property} from {command.name}"
 
 
-    def generate(self):
+    def generate(self) -> IBuildStep:
         workdir = self._set_workdir()
         return steps.SetPropertyFromCommand(
             name=self.name,

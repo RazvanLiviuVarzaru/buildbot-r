@@ -122,7 +122,7 @@ class CreateDockerWorkdirs(steps.ShellCommand):
         )
 
 class CleanupDockerResources(steps.ShellCommand):
-    def __init__(self, name, config: DockerConfig):
+    def __init__(self, name: str, config: DockerConfig):
         super().__init__(
             name=f"Cleanup Docker resources - {name}",
             command=[
@@ -183,7 +183,7 @@ class ContainerCommit(steps.ShellCommand):
 ##-----------------------------------------------------------------------##
 
 class CleanupWorkerDir(steps.ShellCommand):
-    def __init__(self, name):
+    def __init__(self, name: str):
         super().__init__(
             name=f"Cleanup Worker Directory - {name}",
             command="rm -r * .* 2> /dev/null || true",

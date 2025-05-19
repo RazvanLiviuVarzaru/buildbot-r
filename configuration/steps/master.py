@@ -1,3 +1,4 @@
+from buildbot.interfaces import IBuildStep
 from buildbot.plugins import steps
 from configuration.steps.base import BaseStep, StepOptions
 from configuration.steps.commands.base import Command
@@ -20,7 +21,7 @@ class MasterShellStep(BaseStep):
         super().__init__(command.name, options)
         self.prefix_cmd = []
 
-    def generate(self):
+    def generate(self) -> IBuildStep:
         return steps.MasterShellCommand(
             name=self.name,
             command=[*self.prefix_cmd, *self.command.as_cmd_arg()],

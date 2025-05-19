@@ -15,7 +15,7 @@ class CompileMakeCommand(Command):
     def __init__(
         self,
         option: MAKE,
-        jobs,
+        jobs: int,
         verbose: bool = False,
         workdir: PurePath = PurePath("."),
         output_sync: bool = True,
@@ -43,7 +43,7 @@ class CompileMakeCommand(Command):
 class CompileCMakeCommand(Command):
     def __init__(
         self,
-        jobs,
+        jobs: int,
         builddir: str = ".",
         verbose: bool = False,
         workdir: PurePath = PurePath("."),

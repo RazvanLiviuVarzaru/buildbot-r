@@ -7,7 +7,7 @@ from configuration.steps.base import Command
 class CreateDebRepo(Command):
     def __init__(
         self,
-        url,
+        url: str,
         buildername: str,
         workdir: PurePath = PurePath("."),
     ):
@@ -50,8 +50,8 @@ EOF
 class CreateRpmRepo(Command):
     def __init__(
         self,
-        rpm_type,
-        url,
+        rpm_type: str,
+        url: str,
         workdir: PurePath = PurePath("."),
     ):
         name = "Create local RPM repository"

@@ -3,8 +3,6 @@ from collections import namedtuple
 from dataclasses import dataclass
 from typing import Optional
 
-from configuration.steps.commands.base import Command
-
 
 @dataclass
 class StepOptions:  # all step (shell, compile, etc) types support these options
