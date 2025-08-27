@@ -72,6 +72,8 @@ manual_run_switch() {
       for var in $(jq -r '.properties[]' properties.json | grep -v warnings-count | grep ": \[" | cut -d \" -f2); do
         export "$var"="$(jq -r ".properties[] | .${var}[0]" properties.json)"
       done
+      # tmp
+      export test_type="distro"
       # we need some global env vars (not provided as properties)
       wget -q "https://raw.githubusercontent.com/MariaDB/buildbot/$BRANCH/constants.py" -O constants.py ||
         err "unable to get global env vars"
