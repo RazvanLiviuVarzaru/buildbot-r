@@ -286,6 +286,11 @@ rpm_setup_mariadb_mirror() {
     bb_log_err "missing the branch variable"
     exit 1
   }
+  [[ $1 == "N/A" ]] && {
+    bb_log_warn "performing a distribution upgrade, skipping repository setup"
+    set +u
+    return 0
+  }
   branch=$1
   bb_log_info "setup MariaDB repository for $branch branch"
   command -v wget >/dev/null || {
