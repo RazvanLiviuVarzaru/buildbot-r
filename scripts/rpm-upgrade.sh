@@ -49,12 +49,13 @@ case $test_mode in
   server)
     package_list="MariaDB-server MariaDB-client"
     alternative_names_package_list=$package_list
-    if $test_type == "distro"
-      if [[ $ID_LIKE =~ ^suse* ]]; then
+    if [[ "$test_type" == "distro" ]]; then
+      if [[ "$ID_LIKE" =~ ^suse.* ]]; then
         alternative_names_package_list="mariadb mariadb-client"
       else
         alternative_names_package_list="mariadb-server mariadb"
       fi
+    fi
     ;;
   columnstore)
     package_list=$(rpm_repoquery)
