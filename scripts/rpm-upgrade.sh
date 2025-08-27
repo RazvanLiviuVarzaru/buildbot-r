@@ -43,10 +43,18 @@ case $test_mode in
     package_list=$(rpm_repoquery) ||
       bb_log_err "unable to retrieve package list from repository"
     package_list=$(echo "$package_list" | grep -viE 'galera|columnstore')
+    alternative_names_package_list=$package_list
     bb_log_warn "Due to MCOL-4120 and other issues, Columnstore upgrade will be tested separately"
     ;;
   server)
     package_list="MariaDB-server MariaDB-client"
+    alternative_names_package_list=$package_list
+    if $test_type == "distro"
+      if [[ $ID_LIKE =~ ^suse* ]]; then
+        alternative_names_package_list="mariadb mariadb-client"
+      else
+        alternative_names_package_list="mariadb-server mariadb"
+      fi
     ;;
   columnstore)
     package_list=$(rpm_repoquery)
@@ -55,6 +63,7 @@ case $test_mode in
       exit
     fi
     package_list="MariaDB-server MariaDB-columnstore-engine"
+    alternative_names_package_list=$package_list
     ;;
   *)
     bb_log_err "unknown test mode ($test_mode)"
@@ -63,61 +72,6 @@ case $test_mode in
 esac
 
 bb_log_info "Package_list: $package_list"
-
-# # //TEMP this needs to be implemented once we have SLES VM in new BB
-# # Prepare yum/zypper configuration for installation of the last release
-# if which zypper; then
-#   repo_location=/etc/zypp/repos.d
-#   install_command="zypper --no-gpg-checks install --from mariadb -y"
-#   cleanup_command="zypper clean --all"
-#   remove_command="zypper remove -y"
-#   # Since there is no reasonable "upgrade" command in zypper which would
-#   # pick up RPM files needed to upgrade existing packages, we have to use "install".
-#   # However, if we run "install *.rpm", it will install all packages, regardless
-#   # the test mode, and we will get a lot of differences in contents after upgrade
-#   # (more plugins, etc.). So, instead for each package that we are going to install,
-#   # we'll also find an RPM file which provides it, and will use its name in
-#   # in the "upgrade" (second install) command
-#   if [[ $test_mode == "all" ]]; then
-#     rm -f rpms/*columnstore*.rpm
-#     rpms_for_upgrade="rpms/*.rpm"
-#   else
-#     rpms_for_upgrade=""
-#     for p in $package_list; do
-#       for f in rpms/*.rpm; do
-#         if rpm -qp "$f" --provides | grep -i "^$p ="; then
-#           rpms_for_upgrade="$rpms_for_upgrade $f"
-#           break
-#         fi
-#       done
-#     done
-#   fi
-#   upgrade_command="zypper --no-gpg-checks install -y $rpms_for_upgrade"
-
-# As of now (February 2018), RPM packages do not support major upgrade.
-# To imitate it, we will remove previous packages and install new ones.
-# //TEMP is this still true??
-#else
-#
-# repo_location=/etc/yum.repos.d
-# install_command="sudo $pkg_cmd -y --nogpgcheck install"
-# cleanup_command="sudo $pkg_cmd clean all"
-# upgrade_command="sudo $pkg_cmd -y --nogpgcheck upgrade"
-# if [[ $test_type == "major" ]]; then
-#   upgrade_command="sudo $pkg_cmd -y --nogpgcheck install"
-# fi
-# # //TEMP not sure about the reason of this
-# # if $pkg_cmd autoremove 2>&1 | grep -q 'need to be root'; then
-# #   remove_command="sudo $pkg_cmd -y autoremove"
-# # else
-# #   remove_command="sudo $pkg_cmd -y remove"
-# # fi
-# remove_command="sudo $pkg_cmd -y autoremove"
-
-# Workaround for TODO-1479 (errors upon reading from SUSE repos):
-# sudo rm -rf
-# /etc/zypp/repos.d/SUSE_Linux_Enterprise_Server_12_SP3_x86_64:SLES12-SP3-Updates.repo
-# /etc/zypp/repos.d/SUSE_Linux_Enterprise_Server_12_SP3_x86_64:SLES12-SP3-Pool.repo
 
 # ID_LIKE may not exist
 set +u
@@ -133,7 +87,7 @@ fi
 set -u
 
 # Install previous release
-echo "$package_list" | xargs sudo "$pkg_cmd" "$pkg_cmd_options" install ||
+echo "$alternative_names_package_list" | xargs sudo "$pkg_cmd" "$pkg_cmd_options" install ||
   bb_log_err "installation of a previous release failed, see the output above"
 #fi
 
@@ -187,7 +141,7 @@ fi
 # //TEMP upgrade does not work without this but why? Can't we fix it?
 if [[ $test_type == "major" ]]; then
   bb_log_info "remove old packages for major upgrade"
-  packages_to_remove=$(rpm -qa | grep 'MariaDB-' | awk -F'-' '{print $1"-"$2}')
+  packages_to_remove=$(rpm -qa | grep -E '^(MariaDB|mariadb)-' | awk -F'-' '{print $1"-"$2}')
   echo "$packages_to_remove" | xargs sudo "$pkg_cmd" "$pkg_cmd_options" remove
   rpm -qa | grep -iE 'maria|mysql' || true
 fi
