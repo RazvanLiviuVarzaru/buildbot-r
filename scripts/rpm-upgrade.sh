@@ -140,7 +140,7 @@ if [[ $package_version == "$old_version" ]]; then
 fi
 
 # //TEMP upgrade does not work without this but why? Can't we fix it?
-if [[ $test_type == "major" ]]; then
+if [[ "$test_type" =~ ^(major|distro)$ ]]; then
   bb_log_info "remove old packages for major upgrade"
   packages_to_remove=$(rpm -qa | grep -E '^(MariaDB|mariadb)-' | awk -F'-' '{print $1"-"$2}')
   echo "$packages_to_remove" | xargs sudo "$pkg_cmd" "$pkg_cmd_options" remove
@@ -149,7 +149,7 @@ fi
 
 rpm_setup_bb_galera_artifacts_mirror
 rpm_setup_bb_artifacts_mirror
-if [[ $test_type == "major" ]]; then
+if [[ "$test_type" =~ ^(major|distro)$ ]]; then
   # major upgrade (remove then install)
   echo "$package_list" | xargs sudo "$pkg_cmd" "$pkg_cmd_options" install
 else
@@ -176,7 +176,7 @@ fi
 
 # Optionally (re)start the server
 set -e
-if [[ $test_type == "major" ]] || [[ $test_mode == "columnstore" ]]; then
+if [[ "$test_type" =~ ^(major|distro)$ ]] || [[ $test_mode == "columnstore" ]]; then
   control_mariadb_server restart
 fi
 
@@ -188,7 +188,7 @@ fi
 
 # Run mariadb-upgrade for non-GA branches (minor upgrades in GA branches
 # shouldn't need it)
-if [[ $major_version == "$development_branch" ]] || [[ $test_type == "major" ]]; then
+if [[ $major_version == "$development_branch" ]] || [[ "$test_type" =~ ^(major|distro)$ ]]; then
   sudo mariadb-upgrade
 fi
 
