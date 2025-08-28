@@ -593,7 +593,7 @@ check_upgraded_versions() {
 # engines as STATIC by passing -DFEATURE_SET="community" to CMake, while our builds
 # load them as DYNAMIC.
   if [[ $test_type == "distro" ]]; then
-    for eng in federated archive blackhole; do
+    for eng in FEDERATED ARCHIVE BLACKHOLE; do
       sed -i "/${eng}/d" ./engines.new
     done
   fi
