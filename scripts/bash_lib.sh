@@ -594,7 +594,7 @@ check_upgraded_versions() {
 # load them as DYNAMIC.
   if [[ $test_type == "distro" ]]; then
     for eng in FEDERATED ARCHIVE BLACKHOLE; do
-      sed -i "/${eng}/d" ./engines.new
+      sed -i "/${eng}/d" ./engines.old
     done
   fi
   engines_disappeared_or_changed=$(comm -23 ./engines.old ./engines.new | wc -l)
