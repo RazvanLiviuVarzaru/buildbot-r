@@ -589,6 +589,14 @@ check_upgraded_versions() {
 
   res=0
   errors=""
+# MDBF-1103 - The "distro" builds package "federated", "archive", and "blackhole"
+# engines as STATIC by passing -DFEATURE_SET="community" to CMake, while our builds
+# load them as DYNAMIC.
+  if [[ $test_type == "distro" ]]; then
+    for eng in federated archive blackhole; do
+      sed -i "/${eng}/d" ./engines.new
+    done
+  fi
   engines_disappeared_or_changed=$(comm -23 ./engines.old ./engines.new | wc -l)
   set +x
   if ((engines_disappeared_or_changed != 0)); then
