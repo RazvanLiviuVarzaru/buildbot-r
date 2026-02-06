@@ -15,7 +15,7 @@ jobs:
     env:
       ORG: MariaDB
       PACKAGE: buildbot/bb-worker
-      RETENTION_MONTHS: "24"
+      RETENTION_MONTHS: "13"
       TAG_PREFIX: dev_
     steps:
       - name: Checkout
