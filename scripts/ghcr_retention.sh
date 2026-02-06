@@ -2,8 +2,8 @@
 set -euo pipefail
 
 
-ORG=""                       # empty => authenticated user
-USER="${USER:-$(gh api user --jq .login)}"  # for display only
+ORG="${ORG:-}" # Leave empty for using user's API scope.
+USER="${USER:-}"
 PACKAGE="${PACKAGE:-buildbot/bb-worker}"    # may include '/'
 RETENTION_MONTHS="${RETENTION_MONTHS:-6}"
 TAG_PREFIX="${TAG_PREFIX:-hist_}"
@@ -14,8 +14,8 @@ if [ -n "$ORG" ]; then
   SCOPE_PATH="/orgs/$ORG"
   OWNER_LABEL="org:$ORG"
 else
-  SCOPE_PATH="/user"
-  OWNER_LABEL="user:(authenticated)"
+  SCOPE_PATH="/users/$USER"
+  OWNER_LABEL="user:$USER"
 fi
 
 cutoff="$(date -u -d "${RETENTION_MONTHS} months ago" +%Y-%m-%dT%H:%M:%SZ)"
@@ -51,9 +51,5 @@ echo
 echo "$IDS" | jq -r '.id' | while read -r id; do
   [ -z "$id" ] && continue
   echo "Version for deletion: $id"
-  if gh api -X DELETE "${SCOPE_PATH}/packages/container/${PACKAGE_ESCAPED}/versions/$id" --silent; then
-    echo "Deleted version: $id"
-  else
-    echo "Failed to delete version: $id" >&2
-  fi
+  # TODO: Actually delete.
 done
