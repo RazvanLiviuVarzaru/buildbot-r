@@ -51,5 +51,6 @@ echo
 echo "$IDS" | jq -r '.id' | while read -r id; do
   [ -z "$id" ] && continue
   echo "Version for deletion: $id"
-  # TODO: Actually delete.
+  gh api -X DELETE "${SCOPE_PATH}/packages/container/${PACKAGE_ESCAPED}/versions/$id"
 done
+
