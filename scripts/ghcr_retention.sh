@@ -2,7 +2,8 @@
 set -euo pipefail
 
 
-ORG="${ORG:-MariaDB}"                       # empty => authenticated user
+ORG=""                       # empty => authenticated user
+USER="${USER:-$(gh api user --jq .login)}"  # for display only
 PACKAGE="${PACKAGE:-buildbot/bb-worker}"    # may include '/'
 RETENTION_MONTHS="${RETENTION_MONTHS:-6}"
 TAG_PREFIX="${TAG_PREFIX:-hist_}"
