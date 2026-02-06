@@ -51,5 +51,9 @@ echo
 echo "$IDS" | jq -r '.id' | while read -r id; do
   [ -z "$id" ] && continue
   echo "Version for deletion: $id"
-  # TODO: Actually delete.
+  if gh api -X DELETE "${SCOPE_PATH}/packages/container/${PACKAGE_ESCAPED}/versions/$id" --silent; then
+    echo "Deleted version: $id"
+  else
+    echo "Failed to delete version: $id" >&2
+  fi
 done
