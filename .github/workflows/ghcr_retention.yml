@@ -16,7 +16,7 @@ jobs:
       USER: RazvanLiviuVarzaru
       PACKAGE: buildbot-r/bb-worker
       RETENTION_MONTHS: "6"
-      TAG_PREFIX: test_
+      TAG_PREFIX: dev_
     steps:
       - name: Checkout
         uses: actions/checkout@v4
