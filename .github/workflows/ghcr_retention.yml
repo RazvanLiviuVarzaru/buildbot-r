@@ -15,7 +15,7 @@ jobs:
     env:
       USER: RazvanLiviuVarzaru
       PACKAGE: buildbot-r/bb-worker
-      RETENTION_MONTHS: 0"
+      RETENTION_MONTHS: 0
       TAG_PREFIX: hist_
     steps:
       - name: Checkout
