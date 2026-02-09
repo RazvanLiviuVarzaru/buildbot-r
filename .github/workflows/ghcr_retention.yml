@@ -13,10 +13,10 @@ jobs:
   retention:
     runs-on: ubuntu-latest
     env:
-      ORG: MariaDB
-      PACKAGE: buildbot/bb-worker
-      RETENTION_MONTHS: "13"
-      TAG_PREFIX: dev_fedora38
+      USER: RazvanLiviuVarzaru
+      PACKAGE: buildbot-r/bb-worker
+      RETENTION_MONTHS: 0"
+      TAG_PREFIX: hist_
     steps:
       - name: Checkout
         uses: actions/checkout@v4
