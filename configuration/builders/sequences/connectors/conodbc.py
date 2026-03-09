@@ -458,7 +458,7 @@ def rpm_pkg_tests(config: DockerConfig, rpm_path: str, os_name: str):
                 command=InstallRPMPackages(
                     packages=["./*.rpm"],
                     workdir=PurePath(rpm_path),
-                    name =f"{os_name} - Install built .rpm packages",
+                    name =f"{os_name} - Install .rpm pkg",
                 ),
                 options=StepOptions(
                     description=f"{os_name} - Install .rpm packages",
@@ -474,7 +474,7 @@ def rpm_pkg_tests(config: DockerConfig, rpm_path: str, os_name: str):
         InContainer(
             ShellStep(
                 command=BashCommand(
-                    name=f"{os_name} - Test RPM - ODBC Basic",
+                    name=f"{os_name} Test ODBC Basic",
                     workdir=PurePath(f"{rpm_path}/test"),
                     cmd='sed -i "s/localhost/$SIDECAR_HOST/" odbc.ini && export TEST_SERVER=$SIDECAR_HOST && ./odbc_basic',
                     user="root",
