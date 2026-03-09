@@ -315,7 +315,7 @@ if command -v dnf >/dev/null 2>&1; then
     PKG_MGR="dnf"
 elif command -v yum >/dev/null 2>&1; then
     PKG_MGR="yum"
-elif command -v zypper >/dev/null 2>&1; the
+elif command -v zypper >/dev/null 2>&1; then
     PKG_MGR="zypper"
 else
     echo "Unsupported RPM-based system"

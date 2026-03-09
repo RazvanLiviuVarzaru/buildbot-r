@@ -76,6 +76,10 @@ def generate_rpm_release_sq(ops, version):
         ]
         build_environment.bind_mounts += rhel_subscription_mounts
         clean_environment.bind_mounts += rhel_subscription_mounts
+        alma_linux_environment = DockerConfig(
+            repository="docker.io/library/",
+            image_tag=f"almalinux:{version}",
+        )
 
     bintar_sqs = [
         get_source_package(
