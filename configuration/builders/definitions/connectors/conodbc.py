@@ -71,7 +71,7 @@ def generate_rpm_release_sq(ops, version):
         image_tag=f"almalinux:{version}",
     )
     rockylinux_environment = DockerConfig(
-        repository="docker.io/library/rockylinux/",
+        repository="rockylinux/",
         image_tag=f"rockylinux:{version}",
     )
 
