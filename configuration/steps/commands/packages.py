@@ -298,7 +298,7 @@ class SetupRPMRepo(Command):
         self.repo_url = repo_url.rstrip("/")
 
         super().__init__(
-            name=f"{name}: {repo_name}",
+            name=name,
             workdir=PurePath("."),
             user="root",
         )
@@ -315,7 +315,7 @@ if command -v dnf >/dev/null 2>&1; then
     PKG_MGR="dnf"
 elif command -v yum >/dev/null 2>&1; then
     PKG_MGR="yum"
-elif command -v zypper >/dev/null 2>&1; then
+elif command -v zypper >/dev/null 2>&1; the
     PKG_MGR="zypper"
 else
     echo "Unsupported RPM-based system"
