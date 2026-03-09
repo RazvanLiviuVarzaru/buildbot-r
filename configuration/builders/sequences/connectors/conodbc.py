@@ -423,7 +423,7 @@ def deb_pkg_tests(config: DockerConfig, deb_path: str):
     )
     return sequence
 
-def rpm_pkg_tests(config: DockerConfig, rpm_path: str):
+def rpm_pkg_tests(config: DockerConfig, rpm_path: str, os_name: str):
     """
     This sequence should take a clean Docker environment as an input to ensure
     that all dependencies required by the .rpm are correctly specified,
@@ -438,10 +438,11 @@ def rpm_pkg_tests(config: DockerConfig, rpm_path: str):
                 command=SetupRPMRepo(
                     repo_name="mariadb",
                     repo_url="https://mirror.mariadb.org/yum/11.8",
+                    name=f"{os_name} - Setup MariaDB repository",
                 ),
                 options=StepOptions(
-                    description="RPM - Setup MariaDB repository",
-                    descriptionDone="RPM - MariaDB repository setup done",
+                    description=f"{os_name} - Setup MariaDB repository",
+                    descriptionDone=f"{os_name} - MariaDB repository setup done",
                 ),
             ),
             docker_environment=config,
@@ -457,10 +458,11 @@ def rpm_pkg_tests(config: DockerConfig, rpm_path: str):
                 command=InstallRPMPackages(
                     packages=["./*.rpm"],
                     workdir=PurePath(rpm_path),
+                    name =f"{os_name} - Install built .rpm packages",
                 ),
                 options=StepOptions(
-                    description="RPM - Install .rpm packages",
-                    descriptionDone="RPM - .rpm packages installed",
+                    description=f"{os_name} - Install .rpm packages",
+                    descriptionDone=f"{os_name} - .rpm packages installed",
                 ),
             ),
             docker_environment=config,
@@ -472,7 +474,7 @@ def rpm_pkg_tests(config: DockerConfig, rpm_path: str):
         InContainer(
             ShellStep(
                 command=BashCommand(
-                    name="Test RPM - ODBC Basic",
+                    name=f"{os_name} - Test RPM - ODBC Basic",
                     workdir=PurePath(f"{rpm_path}/test"),
                     cmd='sed -i "s/localhost/$SIDECAR_HOST/" odbc.ini && export TEST_SERVER=$SIDECAR_HOST && ./odbc_basic',
                     user="root",
@@ -490,8 +492,8 @@ def rpm_pkg_tests(config: DockerConfig, rpm_path: str):
                     ("TEST_DSN", "maodbc_test"),
                 ],
                 options=StepOptions(
-                    description="RPM - Run ODBC basic test",
-                    descriptionDone="RPM - ODBC basic test done",
+                    description=f"{os_name} - Run ODBC basic test",
+                    descriptionDone=f"{os_name} - ODBC basic test done",
                 ),
             ),
             docker_environment=config,

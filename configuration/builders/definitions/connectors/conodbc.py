@@ -106,6 +106,7 @@ def generate_rpm_release_sq(ops, version):
         rpm_pkg_tests(
             config=clean_environment,
             rpm_path=RPM_PATH,
+            os_name=ops
         ),
         srpm_pkg_test(
             config=clean_environment,

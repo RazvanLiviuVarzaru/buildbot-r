@@ -57,8 +57,8 @@ get_rpm_info() {
         local FILEPATH_REBUILT="$DIR_REBUILT/$FILENAME"
 
         if [ "$MODE" == "requires" ]; then
-            rpm -q --requires -p "$FILEPATH_CI" 2>/dev/null | sed -e 's/>=.*/>=/' -e 's/\([A-Z0-9._]*\)\([0-9]*bit\)$//' -e '/MariaDB-compat/d' -e '/rpmlib(FileCaps)/d' -e 's/((GLIBCXX\|GLIBC\|GCC)_[^)]*)//g' > "$REQUIRES_DIR/CI/$FILENAME.requires"
-            rpm -q --requires -p "$FILEPATH_REBUILT" 2>/dev/null | sed -e 's/>=.*/>=/' -e 's/\([A-Z0-9._]*\)\([0-9]*bit\)$//' -e '/MariaDB-compat/d' -e '/rpmlib(FileCaps)/d' -e 's/((GLIBCXX\|GLIBC\|GCC)_[^)]*)//g' > "$REQUIRES_DIR/REBUILT/$FILENAME.requires"
+            rpm -q --requires -p "$FILEPATH_CI" 2>/dev/null | sed -e 's/>=.*/>=/' -e 's/\([A-Z0-9._]*\)\([0-9]*bit\)$//' -e '/MariaDB-compat/d' -e '/rpmlib(FileCaps)/d' -e 's/(\(GLIBCXX\|GLIBC\|GCC\)_[^)]*)//g' > "$REQUIRES_DIR/CI/$FILENAME.requires"
+            rpm -q --requires -p "$FILEPATH_REBUILT" 2>/dev/null | sed -e 's/>=.*/>=/' -e 's/\([A-Z0-9._]*\)\([0-9]*bit\)$//' -e '/MariaDB-compat/d' -e '/rpmlib(FileCaps)/d' -e 's/(\(GLIBCXX\|GLIBC\|GCC\)_[^)]*)//g' > "$REQUIRES_DIR/REBUILT/$FILENAME.requires"
         elif [ "$MODE" == "content" ]; then
             # src_1 to src_0 replacement is to account for in-source (CI build) vs out-of-source (rebuild)
             # build-id paths are unique per build, so we exclude them
