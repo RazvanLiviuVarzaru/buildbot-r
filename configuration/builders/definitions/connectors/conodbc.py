@@ -66,6 +66,15 @@ def generate_rpm_release_sq(ops, version):
         artifacts_url=f"{os.environ['ARTIFACTS_URL']}/connector-odbc/",
     )
 
+    alma_linux_environment = DockerConfig(
+        repository="docker.io/library/",
+        image_tag=f"almalinux:{version}",
+    )
+    rockylinux_environment = DockerConfig(
+        repository="docker.io/library/rockylinux/",
+        image_tag=f"rockylinux:{version}",
+    )
+
     if ops == "rhel":
         rhel_subscription_mounts = [
             (
@@ -76,10 +85,6 @@ def generate_rpm_release_sq(ops, version):
         ]
         build_environment.bind_mounts += rhel_subscription_mounts
         clean_environment.bind_mounts += rhel_subscription_mounts
-        alma_linux_environment = DockerConfig(
-            repository="docker.io/library/",
-            image_tag=f"almalinux:{version}",
-        )
 
     bintar_sqs = [
         get_source_package(
@@ -120,6 +125,16 @@ def generate_rpm_release_sq(ops, version):
         save_packages(
             packages=RPM_PACKAGES_TO_SAVE,
             config=clean_environment,
+        ),
+        rpm_pkg_tests(
+            config=alma_linux_environment,
+            rpm_path=RPM_PATH,
+            os_name=f"alma",
+        ),
+        rpm_pkg_tests(
+            config=rockylinux_environment,
+            rpm_path=RPM_PATH,
+            os_name=f"rocky",
         ),
     ]
 
