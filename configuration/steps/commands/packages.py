@@ -342,13 +342,13 @@ baseurl={self.repo_url}/$url_path
 enabled=1
 gpgcheck=0
 priority=1
+module_hotfixes = 1
 EOF
 
 # Refresh metadata
 if [ "$PKG_MGR" = "zypper" ]; then
     zypper --gpg-auto-import-keys refresh
 else
-    $PKG_MGR module disable mariadb -y || true
     $PKG_MGR makecache
 fi
 """,
