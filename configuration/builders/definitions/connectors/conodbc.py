@@ -91,7 +91,7 @@ def generate_rpm_release_sq(ops, version):
         ),
         save_packages(
             packages=BINTAR_PACKAGES_TO_SAVE,
-            config=clean_environment,
+            config=build_environment,
         ),
     ]
 
@@ -103,15 +103,15 @@ def generate_rpm_release_sq(ops, version):
             rpm_path=RPM_PATH,
             source_path=SOURCE_PATH,
         ),
-        # rpm_pkg_tests(
-        #     config=clean_environment,
-        #     rpm_path=RPM_PATH,
-        # ),
-        # srpm_pkg_test(
-        #     config=clean_environment,
-        #     jobs=util.Property("jobs"),
-        #     rpms_dir=RPM_PATH,
-        # ),
+        rpm_pkg_tests(
+            config=clean_environment,
+            rpm_path=RPM_PATH,
+        ),
+        srpm_pkg_test(
+            config=clean_environment,
+            jobs=util.Property("jobs"),
+            rpms_dir=RPM_PATH,
+        ),
         save_packages(
             packages=RPM_PACKAGES_TO_SAVE,
             config=clean_environment,
@@ -188,9 +188,9 @@ for (
     ops,
     version,
 ) in [
-    # ("fedora", "42"),
-    # ("fedora", "43"),
-    # ("sles", "1507"),
+    ("fedora", "42"),
+    ("fedora", "43"),
+    ("sles", "1507"),
     ("rhel", "8"),
     ("rhel", "9"),
     ("rhel", "10"),

@@ -348,6 +348,7 @@ EOF
 if [ "$PKG_MGR" = "zypper" ]; then
     zypper --gpg-auto-import-keys refresh
 else
+    $PKG_MGR module disable mariadb -y
     $PKG_MGR makecache
 fi
 """,
