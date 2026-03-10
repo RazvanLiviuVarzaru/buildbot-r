@@ -18,9 +18,6 @@ from configuration.builders.infra.runtime import Sidecar
 from configuration.builders.infra.runtime import DockerConfig
 from buildbot.plugins import util
 
-AMD64_DEB_BUILDERS = []
-AMD64_RPM_BUILDERS = []
-
 PACKAGES_DIR = f"{os.environ['CONNECTORS_PACKAGES_DIR']}/odbc"
 BUILD_BASE_PATH = "build"
 BINTAR_PATH = f"{BUILD_BASE_PATH}/bintar"
@@ -186,44 +183,33 @@ def generate_deb_release_sq(ops, version):
         ),
     ]
 
-
-for (
-    ops,
-    version,
-) in [
-    ("debian", "11"),
-    ("debian", "12"),
-    ("debian", "13"),
-    ("ubuntu", "22.04"),
-    ("ubuntu", "24.04"),
-]:
-    AMD64_DEB_BUILDERS.append(
-        GenericBuilder(
-            name=f"codbc-amd64-{ops}-{version}",
-            sidecar=SIDECAR,
-            sequences=generate_deb_release_sq(ops=ops, version=version),
-        )
-    )
-
-for (
-    ops,
-    version,
-) in [
-    ("fedora", "42"),
-    ("fedora", "43"),
-    ("sles", "1507"),
-    ("rhel", "8"),
-    ("rhel", "9"),
-    ("rhel", "10"),
-]:
-    AMD64_RPM_BUILDERS.append(
-        GenericBuilder(
-            name=f"codbc-amd64-{ops}-{version}",
+RELEASE_BUILDERS_BY_ARCH = {"amd64": [], "aarch64": []}
+for arch in ["amd64", "aarch64"]:
+    for (ops, version) in [
+        ("fedora", "42"),
+        ("fedora", "43"),
+        ("sles", "1507"),
+        ("rhel", "8"),
+        ("rhel", "9"),
+        ("rhel", "10"),
+    ]:
+        builder = GenericBuilder(
+            name=f"codbc-{arch}-{ops}-{version}",
             sidecar=SIDECAR,
             sequences=generate_rpm_release_sq(ops=ops, version=version),
         )
-    )
+        RELEASE_BUILDERS_BY_ARCH[arch].append(builder)
 
-# Gather builders for all architectures
-RPM_BUILDERS = [*AMD64_RPM_BUILDERS]
-DEB_BUILDERS = [*AMD64_DEB_BUILDERS]
+    for (ops, version) in [
+        ("debian", "11"),
+        ("debian", "12"),
+        ("debian", "13"),
+        ("ubuntu", "22.04"),
+        ("ubuntu", "24.04"),
+    ]:
+        builder = GenericBuilder(
+            name=f"codbc-{arch}-{ops}-{version}",
+            sidecar=SIDECAR,
+            sequences=generate_deb_release_sq(ops=ops, version=version),
+        )
+        RELEASE_BUILDERS_BY_ARCH[arch].append(builder)
