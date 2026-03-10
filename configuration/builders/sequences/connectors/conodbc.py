@@ -219,7 +219,7 @@ def deb(config: DockerConfig, jobs: int, typ: str, source_path: str, deb_path: s
     return sequence
 
 
-def rpm(config: DockerConfig, jobs: int, typ: str, source_path: str, rpm_path: str):
+def rpm(config: DockerConfig, jobs: int, typ: str, source_path: str, rpm_path: str, os_name: str):
     ### INIT
     sequence = BuildSequence()
 
@@ -229,10 +229,11 @@ def rpm(config: DockerConfig, jobs: int, typ: str, source_path: str, rpm_path: s
                 command=SetupRPMRepo(
                     repo_name="mariadb",
                     repo_url="https://mirror.mariadb.org/yum/11.8",
+                    name=f"{os_name}:Setup MariaDB repository",
                 ),
                 options = StepOptions(
-                    description="RPM - Setup MariaDB repository",
-                    descriptionDone="RPM - MariaDB repository setup done",
+                    description=f"{os_name}:Setup MariaDB repository",
+                    descriptionDone=f"{os_name}:MariaDB repository setup done",
                 ),
             ),
 
@@ -251,8 +252,8 @@ def rpm(config: DockerConfig, jobs: int, typ: str, source_path: str, rpm_path: s
                     packages=["MariaDB-devel"],
                 ),
                 options = StepOptions(
-                    description="RPM - Install MariaDB development packages",
-                    descriptionDone="RPM - MariaDB development packages installed",
+                    description=f"{os_name}:Install MariaDB development packages",
+                    descriptionDone=f"{os_name}:MariaDB development packages installed",
                 ),
             ),
 
@@ -438,11 +439,11 @@ def rpm_pkg_tests(config: DockerConfig, rpm_path: str, os_name: str):
                 command=SetupRPMRepo(
                     repo_name="mariadb",
                     repo_url="https://mirror.mariadb.org/yum/11.8",
-                    name=f"{os_name} - Setup MariaDB repository",
+                    name=f"{os_name}:Setup MariaDB repository",
                 ),
                 options=StepOptions(
-                    description=f"{os_name} - Setup MariaDB repository",
-                    descriptionDone=f"{os_name} - MariaDB repository setup done",
+                    description=f"{os_name}:Setup MariaDB repository",
+                    descriptionDone=f"{os_name}:MariaDB repository setup done",
                 ),
             ),
             docker_environment=config,
@@ -458,11 +459,11 @@ def rpm_pkg_tests(config: DockerConfig, rpm_path: str, os_name: str):
                 command=InstallRPMPackages(
                     packages=["./*.rpm"],
                     workdir=PurePath(rpm_path),
-                    name =f"{os_name} - Install .rpm pkg",
+                    name =f"{os_name}:Install .rpm pkg",
                 ),
                 options=StepOptions(
-                    description=f"{os_name} - Install .rpm packages",
-                    descriptionDone=f"{os_name} - .rpm packages installed",
+                    description=f"{os_name}:Install .rpm packages",
+                    descriptionDone=f"{os_name}:.rpm packages installed",
                 ),
             ),
             docker_environment=config,
@@ -474,7 +475,7 @@ def rpm_pkg_tests(config: DockerConfig, rpm_path: str, os_name: str):
         InContainer(
             ShellStep(
                 command=BashCommand(
-                    name=f"{os_name} Test ODBC Basic",
+                    name=f"{os_name}:Test ODBC Basic",
                     workdir=PurePath(f"{rpm_path}/test"),
                     cmd='sed -i "s/localhost/$SIDECAR_HOST/" odbc.ini && export TEST_SERVER=$SIDECAR_HOST && ./odbc_basic',
                     user="root",
@@ -492,8 +493,8 @@ def rpm_pkg_tests(config: DockerConfig, rpm_path: str, os_name: str):
                     ("TEST_DSN", "maodbc_test"),
                 ],
                 options=StepOptions(
-                    description=f"{os_name} - Run ODBC basic test",
-                    descriptionDone=f"{os_name} - ODBC basic test done",
+                    description=f"{os_name}:Run ODBC basic test",
+                    descriptionDone=f"{os_name}:ODBC basic test done",
                 ),
             ),
             docker_environment=config,

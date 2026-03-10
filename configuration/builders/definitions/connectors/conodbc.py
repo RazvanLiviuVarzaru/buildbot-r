@@ -111,11 +111,12 @@ def generate_rpm_release_sq(ops, version):
             typ=f"{ops}{version}",
             rpm_path=RPM_PATH,
             source_path=SOURCE_PATH,
+            os_name=ops.upper(),
         ),
         rpm_pkg_tests(
             config=clean_environment,
             rpm_path=RPM_PATH,
-            os_name=ops
+            os_name=ops.upper(),
         ),
         srpm_pkg_test(
             config=clean_environment,
@@ -129,12 +130,12 @@ def generate_rpm_release_sq(ops, version):
         rpm_pkg_tests(
             config=alma_linux_environment,
             rpm_path=RPM_PATH,
-            os_name=f"alma",
+            os_name=f"ALMA",
         ),
         rpm_pkg_tests(
             config=rockylinux_environment,
             rpm_path=RPM_PATH,
-            os_name=f"rocky",
+            os_name=f"ROCKY",
         ),
     ]
 
@@ -225,5 +226,4 @@ for (
 
 # Gather builders for all architectures
 RPM_BUILDERS = [*AMD64_RPM_BUILDERS]
-# DEB_BUILDERS = [*AMD64_DEB_BUILDERS]
-DEB_BUILDERS = []
+DEB_BUILDERS = [*AMD64_DEB_BUILDERS]
