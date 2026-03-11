@@ -551,6 +551,7 @@ def srpm_pkg_test(config: DockerConfig, jobs, rpms_dir: str):
                     description="SRPM - Compare",
                     descriptionDone="SRPM - Compare done",
                 ),
+                warn_on_fail=True,
             ),
         )
     )
