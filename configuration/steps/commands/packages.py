@@ -1,4 +1,5 @@
 from pathlib import PurePath
+from typing import Iterable, Union
 
 from buildbot.plugins import util
 from configuration.steps.commands.base import Command
@@ -242,9 +243,6 @@ class ArchiveSource(Command):
         return result
 
 
-from pathlib import PurePath
-
-
 class SetupDEBRepo(Command):
     def __init__(self, repo_name: str, repo_url: str, components: str = "main"):
         self.repo_name = repo_name
@@ -287,9 +285,6 @@ EOF
 apt-get update
 """,
         ]
-
-
-from pathlib import PurePath
 
 
 class SetupRPMRepo(Command):
@@ -357,10 +352,6 @@ fi
         ]
 
 
-from pathlib import PurePath
-from typing import Iterable, Union
-
-
 class InstallDEBPackages(Command):
     def __init__(
         self, packages: Union[str, Iterable[str]], workdir: PurePath = PurePath(".")
@@ -390,10 +381,6 @@ apt-get update
 apt-get install -y {pkg_str}
 """,
         ]
-
-
-from pathlib import PurePath
-from typing import Iterable, Union
 
 
 class InstallRPMPackages(Command):
