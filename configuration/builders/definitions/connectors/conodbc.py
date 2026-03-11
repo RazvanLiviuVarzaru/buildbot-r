@@ -1,23 +1,24 @@
+import os
+from pathlib import PurePath
+
+from buildbot.plugins import util
+
 from configuration.builders.base import GenericBuilder
-from configuration.builders.sequences.connectors.conodbc import (
-    deb,
-    rpm,
-    rpm_pkg_tests,
-    tarball,
-    deb_pkg_tests,
-    bintar,
-    save_packages,
-    get_source_package,
-    srpm_pkg_test,
-)
 from configuration.builders.common import (
     docker_config,
 )
-import os
-from configuration.builders.infra.runtime import Sidecar
-from configuration.builders.infra.runtime import DockerConfig
-from buildbot.plugins import util
-from pathlib import PurePath
+from configuration.builders.infra.runtime import DockerConfig, Sidecar
+from configuration.builders.sequences.connectors.conodbc import (
+    bintar,
+    deb,
+    deb_pkg_tests,
+    get_source_package,
+    rpm,
+    rpm_pkg_tests,
+    save_packages,
+    srpm_pkg_test,
+    tarball,
+)
 
 PACKAGES_DIR = f"{os.environ['CONNECTORS_PACKAGES_DIR']}/odbc"
 BUILD_BASE_PATH = "build"

@@ -1,3 +1,6 @@
+import os
+from pathlib import PurePath
+
 import configuration.steps.commands.trigger as trigger
 from configuration.builders.infra.runtime import (
     BuildSequence,
@@ -5,12 +8,24 @@ from configuration.builders.infra.runtime import (
     InContainer,
 )
 from configuration.steps.base import StepOptions
-from configuration.steps.commands.util import PrintEnvironmentDetails
-from configuration.steps.remote import ShellStep
-from configuration.steps.commands.download import GitInitFromCommit
-from configuration.steps.commands.packages import ArchiveSource
-from pathlib import PurePath
+from configuration.steps.commands.base import URL, BashCommand
+from configuration.steps.commands.compile import MAKE, CompileMakeCommand
 from configuration.steps.commands.configure import ConfigureMariaDBCMake
+from configuration.steps.commands.download import FetchTarball, GitInitFromCommit
+from configuration.steps.commands.packages import (
+    ArchiveSource,
+    InstallDEBPackages,
+    InstallRPMPackages,
+    SavePackages,
+    SetupDEBRepo,
+    SetupRPMRepo,
+)
+from configuration.steps.commands.srpm import (
+    SRPMCompare,
+    SRPMInstallBuildDeps,
+    SRPMRebuild,
+)
+from configuration.steps.commands.util import PrintEnvironmentDetails
 from configuration.steps.generators.cmake.generator import CMakeGenerator
 from configuration.steps.generators.cmake.options import (
     CMAKE,
@@ -19,24 +34,7 @@ from configuration.steps.generators.cmake.options import (
     BuildType,
     CMakeOption,
 )
-from configuration.steps.commands.packages import (
-    SavePackages,
-    SetupDEBRepo,
-    InstallDEBPackages,
-    InstallRPMPackages,
-    SetupRPMRepo,
-)
-from configuration.steps.commands.download import FetchTarball
-from configuration.steps.base import StepOptions
-from configuration.steps.commands.compile import CompileMakeCommand, MAKE
-from configuration.steps.commands.base import BashCommand
-from configuration.steps.commands.base import URL
-import os
-from configuration.steps.commands.srpm import (
-    SRPMCompare,
-    SRPMInstallBuildDeps,
-    SRPMRebuild,
-)
+from configuration.steps.remote import ShellStep
 
 
 def tarball(config: DockerConfig):

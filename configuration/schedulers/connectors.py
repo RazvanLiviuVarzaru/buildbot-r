@@ -1,10 +1,11 @@
 import os
 from functools import partial
 
+from buildbot.plugins import schedulers, util
+
 import configuration.builders.definitions.connectors.conc as c_builders
 import configuration.builders.definitions.connectors.concpp as cc_builders
 import configuration.builders.definitions.connectors.conodbc as odbc_builders
-from buildbot.plugins import schedulers, util
 from configuration.schedulers.base import upstream_branch_fn
 
 # Branches to monitor
