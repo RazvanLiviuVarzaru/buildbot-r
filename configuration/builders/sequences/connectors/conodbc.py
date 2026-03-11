@@ -38,6 +38,7 @@ from configuration.steps.commands.srpm import (
     SRPMRebuild,
 )
 
+
 def tarball(config: DockerConfig):
     ### INIT
     sequence = BuildSequence()
@@ -219,7 +220,14 @@ def deb(config: DockerConfig, jobs: int, typ: str, source_path: str, deb_path: s
     return sequence
 
 
-def rpm(config: DockerConfig, jobs: int, typ: str, source_path: str, rpm_path: str, os_name: str):
+def rpm(
+    config: DockerConfig,
+    jobs: int,
+    typ: str,
+    source_path: str,
+    rpm_path: str,
+    os_name: str,
+):
     ### INIT
     sequence = BuildSequence()
 
@@ -231,12 +239,11 @@ def rpm(config: DockerConfig, jobs: int, typ: str, source_path: str, rpm_path: s
                     repo_url="https://mirror.mariadb.org/yum/11.8",
                     name=f"{os_name}:Setup MariaDB repository",
                 ),
-                options = StepOptions(
+                options=StepOptions(
                     description=f"{os_name}:Setup MariaDB repository",
                     descriptionDone=f"{os_name}:MariaDB repository setup done",
                 ),
             ),
-
             docker_environment=config,
             container_commit=True,
         ),
@@ -251,12 +258,11 @@ def rpm(config: DockerConfig, jobs: int, typ: str, source_path: str, rpm_path: s
                 command=InstallRPMPackages(
                     packages=["MariaDB-devel"],
                 ),
-                options = StepOptions(
+                options=StepOptions(
                     description=f"{os_name}:Install MariaDB development packages",
                     descriptionDone=f"{os_name}:MariaDB development packages installed",
                 ),
             ),
-
             docker_environment=config,
             container_commit=True,
         ),
@@ -286,7 +292,6 @@ def rpm(config: DockerConfig, jobs: int, typ: str, source_path: str, rpm_path: s
                     descriptionDone="RPM - CMake configured",
                 ),
             ),
-
             docker_environment=config,
         ),
     )
@@ -299,10 +304,10 @@ def rpm(config: DockerConfig, jobs: int, typ: str, source_path: str, rpm_path: s
                     option=MAKE.PACKAGE_SOURCE,
                     jobs=jobs,
                 ),
-                options = StepOptions(
+                options=StepOptions(
                     description="RPM - Build source package",
                     descriptionDone="RPM - Source package built",
-                )
+                ),
             ),
             docker_environment=config,
         ),
@@ -316,15 +321,14 @@ def rpm(config: DockerConfig, jobs: int, typ: str, source_path: str, rpm_path: s
                     option=MAKE.PACKAGE,
                     jobs=jobs,
                 ),
-                options = StepOptions(
+                options=StepOptions(
                     description="RPM - Build package",
                     descriptionDone="RPM - Package built",
-                )
+                ),
             ),
             docker_environment=config,
         ),
     )
-
 
     sequence.add_step(
         InContainer(
@@ -332,7 +336,7 @@ def rpm(config: DockerConfig, jobs: int, typ: str, source_path: str, rpm_path: s
                 command=BashCommand(
                     name="Move RPM packages",
                     workdir=PurePath(rpm_path),
-                    cmd=f'mkdir -p srpms rpms && mv ./*.src.rpm srpms/ && cp ./*.rpm rpms/',
+                    cmd=f"mkdir -p srpms rpms && mv ./*.src.rpm srpms/ && cp ./*.rpm rpms/",
                 ),
                 options=StepOptions(
                     description="RPM - Move packages",
@@ -424,6 +428,7 @@ def deb_pkg_tests(config: DockerConfig, deb_path: str):
     )
     return sequence
 
+
 def rpm_pkg_tests(config: DockerConfig, rpm_path: str, os_name: str):
     """
     This sequence should take a clean Docker environment as an input to ensure
@@ -459,7 +464,7 @@ def rpm_pkg_tests(config: DockerConfig, rpm_path: str, os_name: str):
                 command=InstallRPMPackages(
                     packages=["./*.rpm"],
                     workdir=PurePath(rpm_path),
-                    name =f"{os_name}:Install .rpm pkg",
+                    name=f"{os_name}:Install .rpm pkg",
                 ),
                 options=StepOptions(
                     description=f"{os_name}:Install .rpm packages",
@@ -558,22 +563,28 @@ def srpm_pkg_test(config: DockerConfig, jobs, rpms_dir: str):
 
     return sequence
 
+
 def get_source_package(config: DockerConfig, source_path: str):
     sequence = BuildSequence()
     sequence.add_step(ShellStep(command=PrintEnvironmentDetails()))
-    sequence.add_step(InContainer(
-        ShellStep(
-            command=FetchTarball(workdir=PurePath(source_path)),
-            options=StepOptions(
-                description="Fetch tarball",
-                descriptionDone="Fetch tarball done",
+    sequence.add_step(
+        InContainer(
+            ShellStep(
+                command=FetchTarball(workdir=PurePath(source_path)),
+                options=StepOptions(
+                    description="Fetch tarball",
+                    descriptionDone="Fetch tarball done",
+                ),
             ),
-        ),
-        docker_environment=config,
-    ))
+            docker_environment=config,
+        )
+    )
     return sequence
 
-def bintar(config: DockerConfig, jobs: int, typ: str, bintar_path: str, source_path: str):
+
+def bintar(
+    config: DockerConfig, jobs: int, typ: str, bintar_path: str, source_path: str
+):
     sequence = BuildSequence()
     sequence.add_step(
         InContainer(
@@ -648,24 +659,27 @@ def bintar(config: DockerConfig, jobs: int, typ: str, bintar_path: str, source_p
     )
     return sequence
 
-def save_packages(config: DockerConfig,packages: list[str], user: str = "buildbot"):
+
+def save_packages(config: DockerConfig, packages: list[str], user: str = "buildbot"):
     sequence = BuildSequence()
-    sequence.add_step(InContainer(
-        ShellStep(
-            command=SavePackages(
-                packages=packages,
-                destination="/packages/%(prop:tarbuildnum)s/%(prop:buildername)s",
-                user = user,
+    sequence.add_step(
+        InContainer(
+            ShellStep(
+                command=SavePackages(
+                    packages=packages,
+                    destination="/packages/%(prop:tarbuildnum)s/%(prop:buildername)s",
+                    user=user,
+                ),
+                options=StepOptions(
+                    description="Save packages",
+                    descriptionDone="Save packages done",
+                ),
+                url=URL(
+                    url=f"{os.environ['ARTIFACTS_URL']}/connector-odbc/%(prop:tarbuildnum)s/%(prop:buildername)s",
+                    url_text="Packages",
+                ),
             ),
-            options=StepOptions(
-                description="Save packages",
-                descriptionDone="Save packages done",
-            ),
-            url=URL(
-                url=f"{os.environ['ARTIFACTS_URL']}/connector-odbc/%(prop:tarbuildnum)s/%(prop:buildername)s",
-                url_text="Packages",
-            ),
-        ),
-        docker_environment=config,
-    ))
+            docker_environment=config,
+        )
+    )
     return sequence

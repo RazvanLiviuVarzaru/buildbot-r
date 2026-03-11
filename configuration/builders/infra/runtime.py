@@ -89,7 +89,6 @@ class Sidecar(ContainerBase):
     tmpfs: PurePath = field(default=PurePath("/tmp"))
 
 
-
 class InContainer(BaseStep):
     """
     A wrapper class for executing a ShellStep inside a Docker container.

@@ -293,7 +293,9 @@ from pathlib import PurePath
 
 
 class SetupRPMRepo(Command):
-    def __init__(self, repo_name: str, repo_url: str, name: str = "Setup RPM repository"):
+    def __init__(
+        self, repo_name: str, repo_url: str, name: str = "Setup RPM repository"
+    ):
         self.repo_name = repo_name
         self.repo_url = repo_url.rstrip("/")
 
@@ -396,7 +398,12 @@ from typing import Iterable, Union
 
 class InstallRPMPackages(Command):
     def __init__(
-        self, packages: Union[str, Iterable[str]], workdir: PurePath = PurePath(".",), name: str = "Install RPM packages"
+        self,
+        packages: Union[str, Iterable[str]],
+        workdir: PurePath = PurePath(
+            ".",
+        ),
+        name: str = "Install RPM packages",
     ):
         if isinstance(packages, str):
             self.packages = [packages]

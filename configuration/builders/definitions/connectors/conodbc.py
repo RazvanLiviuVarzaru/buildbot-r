@@ -35,7 +35,7 @@ SIDECAR = Sidecar(
     repository="docker.io/library/",
     image_tag="mariadb:lts",
     env_vars=[("MARIADB_ALLOW_EMPTY_ROOT_PASSWORD", "1"), ("MARIADB_DATABASE", "test")],
-    tmpfs=PurePath("/var/lib/mysql")
+    tmpfs=PurePath("/var/lib/mysql"),
 )
 
 
@@ -185,9 +185,10 @@ def generate_deb_release_sq(ops, version):
         ),
     ]
 
+
 RELEASE_BUILDERS_BY_ARCH = {"amd64": [], "aarch64": []}
 for arch in ["amd64", "aarch64"]:
-    for (ops, version) in [
+    for ops, version in [
         ("fedora", "42"),
         ("fedora", "43"),
         ("sles", "1507"),
@@ -204,7 +205,7 @@ for arch in ["amd64", "aarch64"]:
         )
         RELEASE_BUILDERS_BY_ARCH[arch].append(builder)
 
-    for (ops, version) in [
+    for ops, version in [
         ("debian", "11"),
         ("debian", "12"),
         ("debian", "13"),

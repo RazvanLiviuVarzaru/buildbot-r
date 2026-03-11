@@ -22,7 +22,9 @@ class SRPMRebuild(BashScriptCommand):
     A command to rebuild the RPM's from a source RPM.
     """
 
-    def __init__(self, jobs: int, workdir: PurePath = PurePath("."), dir_srpms: str = "srpms"):
+    def __init__(
+        self, jobs: int, workdir: PurePath = PurePath("."), dir_srpms: str = "srpms"
+    ):
         dir_srpms = dir_srpms
         args = [dir_srpms, jobs]
         super().__init__(script_name="srpm_rebuild.sh", workdir=workdir, args=args)
@@ -34,7 +36,13 @@ class SRPMCompare(BashScriptCommand):
     A command to compare the RPMs from the CI and rebuilt directories.
     """
 
-    def __init__(self, workdir: PurePath = PurePath("."), ci_rpms_dir: str = "rpms", rebuilt_rpms_dir: str = "../rpmbuild/RPMS", exclude_rpms: str = "MariaDB-compat*"):
+    def __init__(
+        self,
+        workdir: PurePath = PurePath("."),
+        ci_rpms_dir: str = "rpms",
+        rebuilt_rpms_dir: str = "../rpmbuild/RPMS",
+        exclude_rpms: str = "MariaDB-compat*",
+    ):
         ci_rpms_dir = ci_rpms_dir
         rebuilt_rpms_dir = rebuilt_rpms_dir
         exclude_rpms = exclude_rpms
