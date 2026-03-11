@@ -17,6 +17,7 @@ import os
 from configuration.builders.infra.runtime import Sidecar
 from configuration.builders.infra.runtime import DockerConfig
 from buildbot.plugins import util
+from pathlib import PurePath
 
 PACKAGES_DIR = f"{os.environ['CONNECTORS_PACKAGES_DIR']}/odbc"
 BUILD_BASE_PATH = "build"
@@ -34,6 +35,7 @@ SIDECAR = Sidecar(
     repository="docker.io/library/",
     image_tag="mariadb:lts",
     env_vars=[("MARIADB_ALLOW_EMPTY_ROOT_PASSWORD", "1"), ("MARIADB_DATABASE", "test")],
+    tmpfs=PurePath("/var/lib/mysql")
 )
 
 
@@ -193,6 +195,8 @@ for arch in ["amd64", "aarch64"]:
         ("rhel", "9"),
         ("rhel", "10"),
     ]:
+        if ops == "sles" and arch != "amd64":
+            continue
         builder = GenericBuilder(
             name=f"codbc-{arch}-{ops}-{version}",
             sidecar=SIDECAR,
