@@ -198,14 +198,13 @@ def generate_deb_release_sq(ops, version):
 
 
 RELEASE_BUILDERS_BY_ARCH = {"amd64": [], "aarch64": []}
-# for arch in ["amd64", "aarch64"]:
-for arch in ["amd64"]:
+for arch in ["amd64", "aarch64"]:
     for ops, version in [
-        # ("fedora", "42"),
-        # ("fedora", "43"),
-        # ("sles", "1507"),
-        # ("rhel", "8"),
-        # ("rhel", "9"),
+        ("fedora", "42"),
+        ("fedora", "43"),
+        ("sles", "1507"),
+        ("rhel", "8"),
+        ("rhel", "9"),
         ("rhel", "10"),
     ]:
         if ops == "sles" and arch != "amd64":
@@ -218,11 +217,11 @@ for arch in ["amd64"]:
         RELEASE_BUILDERS_BY_ARCH[arch].append(builder)
 
     for ops, version in [
-        # ("debian", "11"),
+        ("debian", "11"),
         ("debian", "12"),
         ("debian", "13"),
-        # ("ubuntu", "22.04"),
-        # ("ubuntu", "24.04"),
+        ("ubuntu", "22.04"),
+        ("ubuntu", "24.04"),
     ]:
         builder = GenericBuilder(
             name=f"codbc-{arch}-{ops}-{version}",
