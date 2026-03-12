@@ -246,7 +246,7 @@ class ArchiveSource(Command):
 class SetupDEBRepo(Command):
     def __init__(self, repo_name: str, repo_url: str, components: str = "main"):
         self.repo_name = repo_name
-        self.repo_url = repo_url.rstrip("/")
+        self.repo_url = util.Interpolate(repo_url.rstrip("/"))
         self.components = components
 
         super().__init__(
@@ -292,7 +292,7 @@ class SetupRPMRepo(Command):
         self, repo_name: str, repo_url: str, name: str = "Setup RPM repository"
     ):
         self.repo_name = repo_name
-        self.repo_url = repo_url.rstrip("/")
+        self.repo_url = util.Interpolate(repo_url.rstrip("/"))
 
         super().__init__(
             name=name,

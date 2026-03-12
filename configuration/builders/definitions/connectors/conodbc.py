@@ -153,6 +153,29 @@ def generate_deb_release_sq(ops, version):
         bind_mounts=[(f"{PACKAGES_DIR}/", "/packages")],
     )
 
+    do_step_if = lambda props: True
+    if ops == "debian" and version == "13":
+        # ODBC 3.1 needs C/C 3.3 which is not available in Debian 13
+        # MariaDB-Server repos as only >= 11.8 is built which contains C/C 3.4
+        # In this case we only produce a bintar
+        do_step_if = lambda step: step.getProperty("odbc_version") != "3.1"
+
+    deb_sqs = [
+        deb(
+            config=build_environment,
+            jobs=util.Property("jobs"),
+            typ=f"{ops[:3]}{version}",
+            deb_path=DEB_PATH,
+            source_path=SOURCE_PATH,
+            do_step_if=do_step_if,
+        ),
+        deb_pkg_tests(
+            config=clean_environment,
+            deb_path=DEB_PATH,
+            do_step_if=do_step_if,
+        ),
+    ]
+
     return [
         get_source_package(
             config=build_environment,
@@ -165,17 +188,7 @@ def generate_deb_release_sq(ops, version):
             typ=f"{ops[:3]}{version}",
             jobs=util.Property("jobs"),
         ),
-        deb(
-            config=build_environment,
-            jobs=util.Property("jobs"),
-            typ=f"{ops[:3]}{version}",
-            deb_path=DEB_PATH,
-            source_path=SOURCE_PATH,
-        ),
-        deb_pkg_tests(
-            config=clean_environment,
-            deb_path=DEB_PATH,
-        ),
+        *deb_sqs,
         save_packages(
             packages=DEB_PACKAGES_TO_SAVE + BINTAR_PACKAGES_TO_SAVE,
             user="root",
@@ -185,13 +198,14 @@ def generate_deb_release_sq(ops, version):
 
 
 RELEASE_BUILDERS_BY_ARCH = {"amd64": [], "aarch64": []}
-for arch in ["amd64", "aarch64"]:
+# for arch in ["amd64", "aarch64"]:
+for arch in ["amd64"]:
     for ops, version in [
-        ("fedora", "42"),
-        ("fedora", "43"),
-        ("sles", "1507"),
-        ("rhel", "8"),
-        ("rhel", "9"),
+        # ("fedora", "42"),
+        # ("fedora", "43"),
+        # ("sles", "1507"),
+        # ("rhel", "8"),
+        # ("rhel", "9"),
         ("rhel", "10"),
     ]:
         if ops == "sles" and arch != "amd64":
@@ -204,11 +218,11 @@ for arch in ["amd64", "aarch64"]:
         RELEASE_BUILDERS_BY_ARCH[arch].append(builder)
 
     for ops, version in [
-        ("debian", "11"),
+        # ("debian", "11"),
         ("debian", "12"),
         ("debian", "13"),
-        ("ubuntu", "22.04"),
-        ("ubuntu", "24.04"),
+        # ("ubuntu", "22.04"),
+        # ("ubuntu", "24.04"),
     ]:
         builder = GenericBuilder(
             name=f"codbc-{arch}-{ops}-{version}",
