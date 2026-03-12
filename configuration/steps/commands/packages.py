@@ -246,7 +246,7 @@ class ArchiveSource(Command):
 class SetupDEBRepo(Command):
     def __init__(self, repo_name: str, repo_url: str, components: str = "main"):
         self.repo_name = repo_name
-        self.repo_url = util.Interpolate(repo_url.rstrip("/"))
+        self.repo_url = repo_url.rstrip("/")
         self.components = components
 
         super().__init__(
@@ -259,7 +259,7 @@ class SetupDEBRepo(Command):
         return [
             "bash",
             "-exc",
-            f"""
+            util.Interpolate(f"""
 set -euo pipefail
 apt-get update
 apt-get install -y apt-utils apt-transport-https ca-certificates
@@ -283,7 +283,8 @@ Pin-Priority: 1001
 EOF
 
 apt-get update
-""",
+"""
+            ),
         ]
 
 
@@ -292,7 +293,7 @@ class SetupRPMRepo(Command):
         self, repo_name: str, repo_url: str, name: str = "Setup RPM repository"
     ):
         self.repo_name = repo_name
-        self.repo_url = util.Interpolate(repo_url.rstrip("/"))
+        self.repo_url = repo_url.rstrip("/")
 
         super().__init__(
             name=name,
@@ -304,7 +305,7 @@ class SetupRPMRepo(Command):
         return [
             "bash",
             "-exc",
-            f"""
+            util.Interpolate(f"""
 set -euo pipefail
 
 # Detect package manager
@@ -329,7 +330,7 @@ case $ID in
   ;;
 esac
 base_id=$ID
-url_path="$base_id/$base_version/$(rpm --eval '%_arch')"
+url_path="$base_id/$base_version/$(rpm --eval '%%_arch')"
 
 # Create repo file
 cat > /etc/yum.repos.d/{self.repo_name}.repo <<EOF
@@ -348,7 +349,8 @@ if [ "$PKG_MGR" = "zypper" ]; then
 else
     $PKG_MGR makecache
 fi
-""",
+"""
+            ),
         ]
 
 
