@@ -113,7 +113,7 @@ def tarball(config: DockerConfig):
     version=${version%%-src.tar.gz}
     odbc_version=$(echo "$version" | cut -d. -f1,2)
 
-    if [[ $odbc_version == 3.1.* ]]; then
+    if [[ $odbc_version == 3.1 ]]; then
         echo 10.11
     else
         echo 11.8
