@@ -109,9 +109,11 @@ def tarball(config: DockerConfig):
                     name="odbc_to_mariadb_repo",
                     cmd="""
     file=$(echo mariadb-connector-odbc-*-src.tar.gz)
-    version=$(echo "$file" | sed -E 's/.*-([0-9]+\\.[0-9]+)\\.[0-9]+-src\\.tar\\.gz/\\\\1/')
+    version=${file#*-odbc-}
+    version=${version%-src.tar.gz}
+    odbc_version=${version%.*}
 
-    if [[ $version == 3.1.* ]]; then
+    if [[ $odbc_version == 3.1.* ]]; then
         echo 10.11
     else
         echo 11.8
@@ -132,9 +134,10 @@ def tarball(config: DockerConfig):
                     name="odbc_version",
                     cmd="""
     file=$(echo mariadb-connector-odbc-*-src.tar.gz)
-    version=$(echo "$file" | sed -E 's/.*-([0-9]+\\.[0-9]+)\\.[0-9]+-src\\.tar\\.gz/\\\\1/')
-
-    echo "$version"
+    version=${file#*-odbc-}
+    version=${version%-src.tar.gz}
+    odbc_version=${version%.*}
+    echo "$odbc_version"
     """,
                 ),
                 property="odbc_version",
