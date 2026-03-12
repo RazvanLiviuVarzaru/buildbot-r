@@ -106,7 +106,7 @@ def tarball(config: DockerConfig):
         InContainer(
             PropFromShellStep(
                 command=BashCommand(
-                    name="Set ODBC to mariadb repo mapping",
+                    name="odbc_to_mariadb_repo",
                     cmd="""
     file=$(echo mariadb-connector-odbc-*-src.tar.gz)
     version=$(echo "$file" | sed -E 's/.*-([0-9]+\.[0-9]+)\.[0-9]+-src\.tar\.gz/\1/')
@@ -129,7 +129,7 @@ def tarball(config: DockerConfig):
         InContainer(
             PropFromShellStep(
                 command=BashCommand(
-                    name="Set ODBC version",
+                    name="odbc_version",
                     cmd="""
     file=$(echo mariadb-connector-odbc-*-src.tar.gz)
     version=$(echo "$file" | sed -E 's/.*-([0-9]+\.[0-9]+)\.[0-9]+-src\.tar\.gz/\1/')
