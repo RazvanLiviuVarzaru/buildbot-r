@@ -798,8 +798,8 @@ def macos(jobs: int):
     sequence.add_step(
         ShellStep(
             command=CompileCMakeCommand(
-                target=MAKE.PACKAGE,
                 jobs=jobs,
+                config=BuildType.RELWITHDEBUG,
             ),
             options=StepOptions(
                 description="Build package",
