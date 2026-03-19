@@ -749,3 +749,9 @@ def save_packages(config: DockerConfig, packages: list[str], user: str = "buildb
         )
     )
     return sequence
+
+
+def macos():
+    sequence = BuildSequence()
+    sequence.add_step(ShellStep(command=PrintEnvironmentDetails()))
+    return sequence
