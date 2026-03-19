@@ -751,7 +751,60 @@ def save_packages(config: DockerConfig, packages: list[str], user: str = "buildb
     return sequence
 
 
-def macos():
+def macos(jobs: int):
     sequence = BuildSequence()
     sequence.add_step(ShellStep(command=PrintEnvironmentDetails()))
+
+    sequence.add_step(
+        ShellStep(
+            command=GitInitFromCommit(
+                repo_url="%(prop:repository)s",
+                commit="%(prop:revision)s",
+            ),
+            options=StepOptions(
+                description="Initialize git repository",
+                descriptionDone="Git repository initialized",
+            ),
+        ),
+    )
+
+    sequence.add_step(
+        ShellStep(
+            command=ConfigureMariaDBCMake(
+                name="RelWithDebugInfo",
+                cmake_generator=CMakeGenerator(
+                    flags=[
+                        CMakeOption(CMAKE.BUILD_TYPE, BuildType.RELWITHDEBUG),
+                        CMakeOption(WITH.OPENSSL, True),
+                        CMakeOption(WITH.SIGNCODE, False),
+                        CMakeOption(WITH.EXTERNAL_ZLIB, True),
+                        CMakeOption(OTHER.CONC_WITH_UNIT_TESTS, False),
+                        CMakeOption(
+                            OTHER.ODBC_INCLUDE_DIR, "/opt/homebrew/opt/libiodbc/include"
+                        ),
+                        CMakeOption(
+                            OTHER.ODBC_LIB_DIR, "/opt/homebrew/opt/libiodbc/lib"
+                        ),
+                    ],
+                ),
+            ),
+            options=StepOptions(
+                description="Configure CMake",
+                descriptionDone="CMake configured",
+            ),
+        ),
+    )
+
+    sequence.add_step(
+        ShellStep(
+            command=CompileCMakeCommand(
+                target=MAKE.PACKAGE,
+                jobs=jobs,
+            ),
+            options=StepOptions(
+                description="Build package",
+                descriptionDone="Package built",
+            ),
+        ),
+    )
     return sequence

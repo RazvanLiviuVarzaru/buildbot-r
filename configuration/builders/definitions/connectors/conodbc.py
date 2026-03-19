@@ -229,5 +229,5 @@ for arch in ["amd64", "aarch64"]:
 
 MACOS_BUILDER = GenericBuilder(
     name="codbc-aarch64-macos",
-    sequences=[macos()],
+    sequences=[macos(jobs=util.Property("jobs"))],
 )
