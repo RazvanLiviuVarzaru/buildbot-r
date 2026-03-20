@@ -815,14 +815,14 @@ def macos(jobs: int):
                 cmd="export TEST_DRIVER=$(find $(pwd) -name 'libmaodbc.dylib' -print -quit) && cd test && ctest --output-on-failure",
             ),
             env_vars=[
-                ("TEST_SKIP_UNSTABLE_TESTS", "1"),
-                ("ODBCINI", "./test/odbc.ini"),
-                ("ODBCSYSINI", "./test/"),
+                ("ODBCINI", "odbc.ini"),
+                ("ODBCSYSINI", "odbcinst.ini"),
                 ("TEST_UID", "root"),
                 ("TEST_PASSWORD", "test"),
                 ("TEST_PORT", "3306"),
                 ("TEST_SCHEMA", "test"),
                 ("TEST_DSN", "maodbc_test"),
+                ("TEST_SOCKET", ""),
             ],
             options=StepOptions(
                 description="Run ODBC ctest",
