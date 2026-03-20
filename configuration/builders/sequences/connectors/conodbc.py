@@ -807,4 +807,28 @@ def macos(jobs: int):
             ),
         ),
     )
+
+    sequence.add_step(
+        ShellStep(
+            command=BashCommand(
+                name="ODBC ctest",
+                cmd="cd test && ctest --output-on-failure",
+            ),
+            env_vars=[
+                ("TEST_SKIP_UNSTABLE_TESTS", "1"),
+                ("ODBCINI", "./test/odbc.ini"),
+                ("ODBCSYSINI", "./test/"),
+                ("TEST_UID", "root"),
+                ("TEST_PASSWORD", "test"),
+                ("TEST_PORT", "3306"),
+                ("TEST_SCHEMA", "test"),
+                ("TEST_DRIVER", "./driver/libmaodbc.dylib"),
+                ("TEST_DSN", "maodbc_test"),
+            ],
+            options=StepOptions(
+                description="Run ODBC ctest",
+                descriptionDone="ODBC ctest done",
+            ),
+        ),
+    )
     return sequence
