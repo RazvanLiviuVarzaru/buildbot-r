@@ -812,11 +812,11 @@ def macos(jobs: int):
         ShellStep(
             command=BashCommand(
                 name="ODBC ctest",
-                cmd="export TEST_DRIVER=$(find $(pwd) -name 'libmaodbc.dylib' -print -quit) && cd test && ctest --output-on-failure",
+                cmd="export TEST_DRIVER=$(find $(pwd) -name 'libmaodbc.dylib' -maxdepth 2 -print -quit) && cd test && ctest --output-on-failure",
             ),
             env_vars=[
                 ("ODBCINI", "odbc.ini"),
-                ("ODBCSYSINI", "odbcinst.ini"),
+                ("ODBCINSTINI", "odbcinst.ini"),
                 ("TEST_UID", "root"),
                 ("TEST_PASSWORD", "test"),
                 ("TEST_PORT", "3306"),
