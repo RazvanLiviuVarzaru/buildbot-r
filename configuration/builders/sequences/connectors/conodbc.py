@@ -925,21 +925,7 @@ def windows(jobs: int):
             command=PowerShellCommand(
                 workdir=PurePath("packaging\\windows"),
                 name="Install ODBC MSI",
-                cmd=r"""
-    Get-ChildItem -Path . -Filter *.msi -File |
-        Sort-Object Name |
-        ForEach-Object {
-            $p = Start-Process msiexec.exe -ArgumentList @(
-                '/i', $_.FullName,
-                '/qn',
-                '/norestart'
-            ) -Wait -PassThru
-
-            if ($p.ExitCode -ne 0) {
-                throw "MSI install failed for $($_.Name) with exit code $($p.ExitCode)"
-            }
-        }
-    """,
+                cmd=r'$msis = Get-ChildItem -Path . -Filter *.msi -File | Sort-Object Name; if (-not $msis) { throw "No MSI files found in current directory" }; foreach ($msi in $msis) { $p = Start-Process msiexec.exe -ArgumentList "/i `"$($msi.FullName)`" /qn /norestart" -Wait -PassThru; if ($p.ExitCode -ne 0) { throw ("MSI install failed for " + $msi.Name + " with exit code " + $p.ExitCode) } }',
             ),
         )
     )
