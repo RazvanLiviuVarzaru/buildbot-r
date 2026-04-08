@@ -952,13 +952,7 @@ def windows(jobs: int):
         ShellStep(
             command=PowerShellCommand(
                 name="Create DSN",
-                cmd=r"""
-Add-OdbcDsn -Name "maodbc" `
-  -DriverName "MariaDB ODBC %(prop:odbc_version)s Driver" `
-  -DsnType "User" `
-  -Platform "32-bit" `
-  -SetPropertyValue "SERVER=127.0.0.1","PORT=3306","DATABASE=test","USER=root","PASSWORD=test"
-""",
+                cmd=r'Add-OdbcDsn -Name "maodbc" -DriverName "MariaDB ODBC %(prop:odbc_version)s Driver" -DsnType "User" -Platform "32-bit" -SetPropertyValue "SERVER=127.0.0.1","PORT=3306","DATABASE=test","USER=root","PASSWORD=test"',
             ),
         )
     )
