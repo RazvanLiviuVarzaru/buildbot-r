@@ -930,24 +930,6 @@ def windows(jobs: int):
         )
     )
 
-#     sequence.add_step(
-#         ShellStep(
-#             command=PowerShellCommand(
-#                 workdir=PurePath("packaging\\windows"),
-#                 name="Uninstall ODBC MSI",
-#                 cmd=r"""
-# $msis = Get-ChildItem -Path . -Filter *.msi -File | Sort-Object Name
-# foreach ($msi in $msis) {
-#     $p = Start-Process msiexec.exe -ArgumentList "/x `"$($msi.FullName)`" /qn /norestart" -Wait -PassThru
-#     if ($p.ExitCode -notin 0, 1605, 1614) {
-#         throw ("MSI uninstall failed for " + $msi.Name + " with exit code " + $p.ExitCode)
-#     }
-# }
-# """,
-#             ),
-#         )
-#     )
-
     sequence.add_step(
         ShellStep(
             command=PowerShellCommand(
@@ -957,17 +939,42 @@ def windows(jobs: int):
         )
     )
 
-#     sequence.add_step(
-#         ShellStep(
-#             command=PowerShellCommand(
-#                 name="Remove DSN",
-#                 cmd=r"""
-# $dsn = Get-OdbcDsn -Name "maodbc" -DsnType "User" -Platform "32-bit" -ErrorAction SilentlyContinue
-# if ($null -ne $dsn) {
-#     Remove-OdbcDsn -Name "maodbc" -DsnType "User" -Platform "32-bit"
-# }
-# """,
-#             ),
-#         )
-#     )
+    sequence.add_step(
+        ShellStep(
+            command=BashCommand(
+                name="ODBC ctest",
+                cmd="export TEST_DRIVER=\"MariaDB ODBC %(prop:odbc_version)s Driver\" && cd test && ctest --output-on-failure",
+            ),
+            env_vars=[
+                ("TEST_UID", "root"),
+                ("TEST_PASSWORD", "test"),
+                ("TEST_PORT", "3306"),
+                ("TEST_SCHEMA", "test"),
+                ("TEST_DSN", "maodbc"),
+            ],
+            options=StepOptions(
+                description="Run ODBC ctest",
+                descriptionDone="ODBC ctest done",
+            ),
+        ),
+    )
+
+    sequence.add_step(
+        ShellStep(
+            command=PowerShellCommand(
+                name="Remove DSN",
+                cmd=r'$dsn = Get-OdbcDsn -Name "maodbc" -DsnType "User" -Platform "32-bit" -ErrorAction SilentlyContinue; if ($null -ne $dsn) { Remove-OdbcDsn -Name "maodbc" -DsnType "User" -Platform "32-bit" }',
+            ),
+        )
+    )
+
+    sequence.add_step(
+        ShellStep(
+            command=PowerShellCommand(
+                workdir=PurePath("packaging\\windows"),
+                name="Uninstall ODBC MSI",
+                cmd=r'$msis = Get-ChildItem -Path . -Filter *.msi -File | Sort-Object Name; foreach ($msi in $msis) { $p = Start-Process msiexec.exe -ArgumentList "/x `"$($msi.FullName)`" /qn /norestart" -Wait -PassThru; if ($p.ExitCode -notin 0,1605,1614) { throw ("MSI uninstall failed for " + $msi.Name + " with exit code " + $p.ExitCode) } }',
+            ),
+        )
+    )
     return sequence
