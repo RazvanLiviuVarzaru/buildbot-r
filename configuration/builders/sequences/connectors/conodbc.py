@@ -930,62 +930,50 @@ def windows(jobs: int):
         )
     )
 
-    # sequence.add_step(
-    #     ShellStep(
-    #         command=PowerShellCommand(
-    #             workdir=PurePath("packaging\\windows"),
-    #             name="Uninstall ODBC MSI",
-    #             cmd=r"""
-    # Get-ChildItem -Path . -Filter *.msi -File |
-    #     Sort-Object Name |
-    #     ForEach-Object {
-    #         $p = Start-Process msiexec.exe -ArgumentList @(
-    #             '/x', $_.FullName,
-    #             '/qn',
-    #             '/norestart'
-    #         ) -Wait -PassThru
-
-    #         if ($p.ExitCode -notin 0, 1605, 1614) {
-    #             throw "MSI uninstall failed for $($_.Name) with exit code $($p.ExitCode)"
-    #         }
-    #     }
-    # """,
-    #         ),
-    #     )
-    # )
+#     sequence.add_step(
+#         ShellStep(
+#             command=PowerShellCommand(
+#                 workdir=PurePath("packaging\\windows"),
+#                 name="Uninstall ODBC MSI",
+#                 cmd=r"""
+# $msis = Get-ChildItem -Path . -Filter *.msi -File | Sort-Object Name
+# foreach ($msi in $msis) {
+#     $p = Start-Process msiexec.exe -ArgumentList "/x `"$($msi.FullName)`" /qn /norestart" -Wait -PassThru
+#     if ($p.ExitCode -notin 0, 1605, 1614) {
+#         throw ("MSI uninstall failed for " + $msi.Name + " with exit code " + $p.ExitCode)
+#     }
+# }
+# """,
+#             ),
+#         )
+#     )
 
     sequence.add_step(
         ShellStep(
             command=PowerShellCommand(
                 name="Create DSN",
                 cmd=r"""
-    Add-OdbcDsn -Name "maodbc" `
-    -DriverName "MariaDB ODBC %(prop:odbc_version)s Driver" `
-    -DsnType "User" `
-    -Platform "32-bit" `
-    -SetPropertyValue @(
-        "SERVER=127.0.0.1",
-        "PORT=3306",
-        "DATABASE=test",
-        "USER=root",
-        "PASSWORD=test"
-    )
-    """,
+Add-OdbcDsn -Name "maodbc" `
+  -DriverName "MariaDB ODBC %(prop:odbc_version)s Driver" `
+  -DsnType "User" `
+  -Platform "32-bit" `
+  -SetPropertyValue "SERVER=127.0.0.1","PORT=3306","DATABASE=test","USER=root","PASSWORD=test"
+""",
             ),
         )
     )
 
-    # sequence.add_step(
-    #     ShellStep(
-    #         command=PowerShellCommand(
-    #             name="Remove DSN",
-    #             cmd=r"""
-    # $dsn = Get-OdbcDsn -Name "maodbc" -DsnType "User" -Platform "32-bit" -ErrorAction SilentlyContinue
-    # if ($dsn) {
-    #     $dsn | Remove-OdbcDsn -Platform "32-bit"
-    # }
-    # """,
-    #         ),
-    #     )
-    # )
+#     sequence.add_step(
+#         ShellStep(
+#             command=PowerShellCommand(
+#                 name="Remove DSN",
+#                 cmd=r"""
+# $dsn = Get-OdbcDsn -Name "maodbc" -DsnType "User" -Platform "32-bit" -ErrorAction SilentlyContinue
+# if ($null -ne $dsn) {
+#     Remove-OdbcDsn -Name "maodbc" -DsnType "User" -Platform "32-bit"
+# }
+# """,
+#             ),
+#         )
+#     )
     return sequence
