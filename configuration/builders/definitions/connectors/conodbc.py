@@ -17,6 +17,7 @@ from configuration.builders.sequences.connectors.conodbc import (
     save_packages,
     srpm_pkg_test,
     tarball,
+    windows,
 )
 
 PACKAGES_DIR = f"{os.environ['CONNECTORS_PACKAGES_DIR']}/odbc"
@@ -276,4 +277,9 @@ UBASAN_BUILDER = GenericBuilder(
 MACOS_BUILDER = GenericBuilder(
     name="codbc-aarch64-macos",
     sequences=[macos(jobs=util.Property("jobs"))],
+)
+
+WINDOWS_BUILDER = GenericBuilder(
+    name="codbc-amd64-windows",
+    sequences=[windows(jobs=util.Property("jobs"))],
 )

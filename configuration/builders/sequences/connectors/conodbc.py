@@ -33,6 +33,8 @@ from configuration.steps.generators.cmake.options import (
     WITH,
     BuildType,
     CMakeOption,
+    BUILDTOOLS,
+    BUILDPLATFORM,
 )
 from configuration.steps.remote import PropFromShellStep, ShellStep
 
@@ -875,4 +877,47 @@ def macos(jobs: int):
             ),
         ),
     )
+    return sequence
+
+
+def windows(jobs: int):
+    sequence = BuildSequence()
+    sequence.add_step(git_clone_step())
+
+    sequence.add_step(
+        ShellStep(
+            command=ConfigureMariaDBCMake(
+                name="RelWithDebugInfo",
+                cmake_generator=CMakeGenerator(
+                    build_platform=BUILDPLATFORM.WIN32,
+                    build_tool=BUILDTOOLS.WINVS2022,
+                    flags=[
+                        CMakeOption(CMAKE.BUILD_TYPE, BuildType.RELWITHDEBUG),
+                        CMakeOption(WITH.SSL, "SCHANNEL"),
+                        CMakeOption(OTHER.CONC_WITH_UNIT_TESTS, False),
+                        CMakeOption(OTHER.CONC_WITH_MSI, False),
+                        CMakeOption(OTHER.ALL_PLUGINS_STATIC, True),
+                    ],
+                ),
+            ),
+            options=StepOptions(
+                description="Configure CMake",
+                descriptionDone="CMake configured",
+            ),
+        ),
+    )
+
+    sequence.add_step(
+        ShellStep(
+            command=CompileCMakeCommand(
+                jobs=jobs,
+                config=BuildType.RELWITHDEBUG,
+            ),
+            options=StepOptions(
+                description="Build package",
+                descriptionDone="Package built",
+            ),
+        ),
+    )
+
     return sequence

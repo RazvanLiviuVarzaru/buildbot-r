@@ -12,6 +12,8 @@ from configuration.steps.generators.cmake.options import (
     BuildConfig,
     BuildType,
     CMakeOption,
+    BUILDPLATFORM,
+    BUILDTOOLS,
 )
 
 
@@ -119,6 +121,40 @@ class TestCMakeGenerator(unittest.TestCase):
                 ".",
                 "-DCMAKE_CXX_COMPILER=g++",
                 "-DCMAKE_C_COMPILER=gcc",
+            ],
+        )
+
+    def test_use_visualstudio_generator(self):
+        """
+        Test that -G option works
+        """
+        generator = CMakeGenerator(flags=[], build_tool=BUILDTOOLS.WINVS2022)
+        command = generator.generate()
+        self.assertEqual(
+            command,
+            [
+                "cmake",
+                "-S",
+                ".",
+                "-G",
+                "Visual Studio 17 2022",
+            ],
+        )
+
+    def test_use_win32_platform(self):
+        """
+        Test that -A option works
+        """
+        generator = CMakeGenerator(flags=[], build_platform=BUILDPLATFORM.WIN32)
+        command = generator.generate()
+        self.assertEqual(
+            command,
+            [
+                "cmake",
+                "-S",
+                ".",
+                "-A",
+                "Win32",
             ],
         )
 

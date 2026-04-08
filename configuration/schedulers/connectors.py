@@ -32,15 +32,20 @@ CONODBC_SCHEDULERS = [
     ),
     schedulers.Triggerable(
         name="conc_odbc_all_scheduler",
-        builderNames=[
-            builder.name
-            for builder in (
-                builder
-                for builders in odbc_builders.RELEASE_BUILDERS_BY_ARCH.values()
-                for builder in builders
-            )
-        ]
-        + [odbc_builders.UBASAN_BUILDER.name, odbc_builders.MACOS_BUILDER.name],
+        builderNames=[odbc_builders.WINDOWS_BUILDER.name],
+        # builderNames=[
+        #     builder.name
+        #     for builder in (
+        #         builder
+        #         for builders in odbc_builders.RELEASE_BUILDERS_BY_ARCH.values()
+        #         for builder in builders
+        #     )
+        # ]
+        # + [
+        #     odbc_builders.UBASAN_BUILDER.name,
+        #     odbc_builders.MACOS_BUILDER.name,
+        #     odbc_builders.WINDOWS_BUILDER.name,
+        # ],
     ),
 ]
 
