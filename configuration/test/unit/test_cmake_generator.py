@@ -137,7 +137,7 @@ class TestCMakeGenerator(unittest.TestCase):
                 "-S",
                 ".",
                 "-G",
-                "Visual Studio 17 2022",
+                "\"Visual Studio 17 2022\"",
             ],
         )
 

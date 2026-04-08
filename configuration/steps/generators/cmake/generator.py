@@ -50,7 +50,7 @@ class CMakeGenerator(BaseGenerator):
             self._set_compiler(compiler)
 
         if build_tool:
-            base_command += ["-G", build_tool.value]
+            base_command += ["-G", f"""\"{build_tool.value}\""""]
 
         if build_platform:
             base_command += ["-A", build_platform.value]
