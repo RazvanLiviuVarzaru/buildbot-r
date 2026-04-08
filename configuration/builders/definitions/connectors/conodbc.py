@@ -285,3 +285,10 @@ WINDOWS_64_BUILDER = GenericBuilder(
         windows(jobs=util.Property("jobs"), target_platform="64-bit"),
     ],
 )
+
+WINDOWS_32_BUILDER = GenericBuilder(
+    name="codbc-x86-windows",
+    sequences=[
+        windows(jobs=util.Property("jobs"), target_platform="32-bit"),
+    ],
+)

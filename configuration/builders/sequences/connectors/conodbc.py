@@ -943,6 +943,8 @@ def windows(jobs: int, target_platform: str):
         )
     )
 
+    # A pre-configured host-level MariaDB Server instance is required
+    # to both register a DSN and run the tests.
     sequence.add_step(
         ShellStep(
             command=PowerShellCommand(

@@ -32,7 +32,10 @@ CONODBC_SCHEDULERS = [
     ),
     schedulers.Triggerable(
         name="conc_odbc_all_scheduler",
-        builderNames=[odbc_builders.WINDOWS_64_BUILDER.name],
+        builderNames=[
+            odbc_builders.WINDOWS_64_BUILDER.name,
+            odbc_builders.WINDOWS_32_BUILDER.name,
+        ],
         # builderNames=[
         #     builder.name
         #     for builder in (
