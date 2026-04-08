@@ -2,7 +2,7 @@ from pathlib import PurePath
 from typing import Iterable, Union
 
 from buildbot.plugins import util
-from configuration.steps.commands.base import Command
+from configuration.steps.commands.base import Command, PowerShellCommand
 
 
 class CreateDebRepo(Command):

@@ -8,7 +8,7 @@ from configuration.builders.infra.runtime import (
     InContainer,
 )
 from configuration.steps.base import StepOptions
-from configuration.steps.commands.base import URL, BashCommand
+from configuration.steps.commands.base import URL, BashCommand, PowerShellCommand
 from configuration.steps.commands.compile import MAKE, CompileCMakeCommand
 from configuration.steps.commands.configure import ConfigureMariaDBCMake
 from configuration.steps.commands.download import FetchTarball, GitInitFromCommit
@@ -920,4 +920,86 @@ def windows(jobs: int):
         ),
     )
 
+    sequence.add_step(
+        ShellStep(
+            command=PowerShellCommand(
+                workdir=PurePath("packaging\\windows"),
+                name="Install ODBC MSI",
+                cmd=r"""
+    Get-ChildItem -Path . -Filter *.msi -File |
+        Sort-Object Name |
+        ForEach-Object {
+            $p = Start-Process msiexec.exe -ArgumentList @(
+                '/i', $_.FullName,
+                '/qn',
+                '/norestart'
+            ) -Wait -PassThru
+
+            if ($p.ExitCode -ne 0) {
+                throw "MSI install failed for $($_.Name) with exit code $($p.ExitCode)"
+            }
+        }
+    """,
+            ),
+        )
+    )
+
+    # sequence.add_step(
+    #     ShellStep(
+    #         command=PowerShellCommand(
+    #             workdir=PurePath("packaging\\windows"),
+    #             name="Uninstall ODBC MSI",
+    #             cmd=r"""
+    # Get-ChildItem -Path . -Filter *.msi -File |
+    #     Sort-Object Name |
+    #     ForEach-Object {
+    #         $p = Start-Process msiexec.exe -ArgumentList @(
+    #             '/x', $_.FullName,
+    #             '/qn',
+    #             '/norestart'
+    #         ) -Wait -PassThru
+
+    #         if ($p.ExitCode -notin 0, 1605, 1614) {
+    #             throw "MSI uninstall failed for $($_.Name) with exit code $($p.ExitCode)"
+    #         }
+    #     }
+    # """,
+    #         ),
+    #     )
+    # )
+
+    sequence.add_step(
+        ShellStep(
+            command=PowerShellCommand(
+                name="Create DSN",
+                cmd=r"""
+    Add-OdbcDsn -Name "maodbc" `
+    -DriverName "MariaDB ODBC %(prop:odbc_version)s Driver" `
+    -DsnType "User" `
+    -Platform "32-bit" `
+    -SetPropertyValue @(
+        "SERVER=127.0.0.1",
+        "PORT=3306",
+        "DATABASE=test",
+        "USER=root",
+        "PASSWORD=test"
+    )
+    """,
+            ),
+        )
+    )
+
+    # sequence.add_step(
+    #     ShellStep(
+    #         command=PowerShellCommand(
+    #             name="Remove DSN",
+    #             cmd=r"""
+    # $dsn = Get-OdbcDsn -Name "maodbc" -DsnType "User" -Platform "32-bit" -ErrorAction SilentlyContinue
+    # if ($dsn) {
+    #     $dsn | Remove-OdbcDsn -Platform "32-bit"
+    # }
+    # """,
+    #         ),
+    #     )
+    # )
     return sequence
