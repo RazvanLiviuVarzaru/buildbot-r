@@ -880,25 +880,34 @@ def macos(jobs: int):
     return sequence
 
 
-def windows(jobs: int):
+def windows(jobs: int, target_platform: str):
     sequence = BuildSequence()
     sequence.add_step(git_clone_step())
+
+    if target_platform == "32-bit":
+        cmake_generator = CMakeGenerator(
+            build_platform=BUILDPLATFORM.WIN32,
+            build_tool=BUILDTOOLS.WINVS2022,
+            flags=[],
+        )
+    if target_platform == "64-bit":
+        cmake_generator = CMakeGenerator(build_tool=BUILDTOOLS.WINVS2022, flags=[])
+
+    cmake_generator.flags.extend(
+        [
+            CMakeOption(CMAKE.BUILD_TYPE, BuildType.RELWITHDEBUG),
+            CMakeOption(WITH.SSL, "SCHANNEL"),
+            CMakeOption(OTHER.CONC_WITH_UNIT_TESTS, False),
+            CMakeOption(OTHER.CONC_WITH_MSI, False),
+            CMakeOption(OTHER.ALL_PLUGINS_STATIC, True),
+        ],
+    )
 
     sequence.add_step(
         ShellStep(
             command=ConfigureMariaDBCMake(
                 name="RelWithDebugInfo",
-                cmake_generator=CMakeGenerator(
-                    build_platform=BUILDPLATFORM.WIN32,
-                    build_tool=BUILDTOOLS.WINVS2022,
-                    flags=[
-                        CMakeOption(CMAKE.BUILD_TYPE, BuildType.RELWITHDEBUG),
-                        CMakeOption(WITH.SSL, "SCHANNEL"),
-                        CMakeOption(OTHER.CONC_WITH_UNIT_TESTS, False),
-                        CMakeOption(OTHER.CONC_WITH_MSI, False),
-                        CMakeOption(OTHER.ALL_PLUGINS_STATIC, True),
-                    ],
-                ),
+                cmake_generator=cmake_generator,
             ),
             options=StepOptions(
                 description="Configure CMake",
@@ -927,6 +936,10 @@ def windows(jobs: int):
                 name="Install ODBC MSI",
                 cmd=r'$msis = Get-ChildItem -Path . -Filter *.msi -File | Sort-Object Name; if (-not $msis) { throw "No MSI files found in current directory" }; foreach ($msi in $msis) { $p = Start-Process msiexec.exe -ArgumentList "/i `"$($msi.FullName)`" /qn /norestart" -Wait -PassThru; if ($p.ExitCode -ne 0) { throw ("MSI install failed for " + $msi.Name + " with exit code " + $p.ExitCode) } }',
             ),
+            options=StepOptions(
+                description="Install ODBC MSI",
+                descriptionDone="ODBC MSI installed",
+            ),
         )
     )
 
@@ -934,7 +947,11 @@ def windows(jobs: int):
         ShellStep(
             command=PowerShellCommand(
                 name="Create DSN",
-                cmd=r'Add-OdbcDsn -Name "maodbc" -DriverName "MariaDB ODBC %(prop:odbc_version)s Driver" -DsnType "User" -Platform "32-bit" -SetPropertyValue "SERVER=127.0.0.1","PORT=3306","DATABASE=test","USER=root","PASSWORD=test"',
+                cmd=f'Add-OdbcDsn -Name "maodbc" -DriverName "MariaDB ODBC %(prop:odbc_version)s Driver" -DsnType "User" -Platform "{target_platform}" -SetPropertyValue "SERVER=127.0.0.1","PORT=3306","DATABASE=test","USER=root","PASSWORD=test"',
+            ),
+            options=StepOptions(
+                description="Create DSN",
+                descriptionDone="DSN created",
             ),
         )
     )
@@ -943,7 +960,7 @@ def windows(jobs: int):
         ShellStep(
             command=BashCommand(
                 name="ODBC ctest",
-                cmd="export TEST_DRIVER=\"MariaDB ODBC %(prop:odbc_version)s Driver\" && cd test && ctest --output-on-failure",
+                cmd='export TEST_DRIVER="MariaDB ODBC %(prop:odbc_version)s Driver" && cd test && ctest --output-on-failure',
             ),
             env_vars=[
                 ("TEST_UID", "root"),
@@ -963,7 +980,12 @@ def windows(jobs: int):
         ShellStep(
             command=PowerShellCommand(
                 name="Remove DSN",
-                cmd=r'$dsn = Get-OdbcDsn -Name "maodbc" -DsnType "User" -Platform "32-bit" -ErrorAction SilentlyContinue; if ($null -ne $dsn) { Remove-OdbcDsn -Name "maodbc" -DsnType "User" -Platform "32-bit" }',
+                cmd=f"""$dsn = Get-OdbcDsn -Name "maodbc" -DsnType "User" -Platform "{target_platform}" -ErrorAction SilentlyContinue; if ($null -ne $dsn) {{ Remove-OdbcDsn -Name "maodbc" -DsnType "User" -Platform "{target_platform}" }}""",
+            ),
+            options=StepOptions(
+                alwaysRun=True,
+                description="Remove DSN",
+                descriptionDone="DSN removed",
             ),
         )
     )
@@ -974,6 +996,11 @@ def windows(jobs: int):
                 workdir=PurePath("packaging\\windows"),
                 name="Uninstall ODBC MSI",
                 cmd=r'$msis = Get-ChildItem -Path . -Filter *.msi -File | Sort-Object Name; foreach ($msi in $msis) { $p = Start-Process msiexec.exe -ArgumentList "/x `"$($msi.FullName)`" /qn /norestart" -Wait -PassThru; if ($p.ExitCode -notin 0,1605,1614) { throw ("MSI uninstall failed for " + $msi.Name + " with exit code " + $p.ExitCode) } }',
+            ),
+            options=StepOptions(
+                alwaysRun=True,
+                description="Uninstall ODBC MSI",
+                descriptionDone="ODBC MSI uninstalled",
             ),
         )
     )

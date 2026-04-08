@@ -279,7 +279,9 @@ MACOS_BUILDER = GenericBuilder(
     sequences=[macos(jobs=util.Property("jobs"))],
 )
 
-WINDOWS_BUILDER = GenericBuilder(
+WINDOWS_64_BUILDER = GenericBuilder(
     name="codbc-amd64-windows",
-    sequences=[windows(jobs=util.Property("jobs"))],
+    sequences=[
+        windows(jobs=util.Property("jobs"), target_platform="64-bit"),
+    ],
 )
