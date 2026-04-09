@@ -979,6 +979,17 @@ def windows(jobs: int, target_platform: str):
     )
 
     sequence.add_step(
+        PropFromShellStep(
+            command=BashCommand(
+                name="Set prop",
+                cmd="find . -maxdepth 1 -type f -name '*.msi' -printf '%%f\n'",
+                workdir=PurePath("packaging\\windows"),
+            ),
+            property="packages",
+        ),
+    )
+
+    sequence.add_step(
         ShellStep(
             command=PowerShellCommand(
                 name="Remove DSN",
