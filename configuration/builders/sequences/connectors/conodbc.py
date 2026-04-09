@@ -37,6 +37,7 @@ from configuration.steps.generators.cmake.options import (
     BUILDPLATFORM,
 )
 from configuration.steps.remote import PropFromShellStep, ShellStep
+from configuration.steps.commands.upload import FileUpload
 
 
 def git_clone_step(step_wrapping_fn=lambda step: step, source_path: str = "."):
@@ -981,12 +982,21 @@ def windows(jobs: int, target_platform: str):
     sequence.add_step(
         PropFromShellStep(
             command=BashCommand(
-                name="Set prop",
+                name="find MSI",
                 cmd="find . -maxdepth 1 -type f -name '*.msi' -exec basename {} \\;",
                 workdir=PurePath("packaging\\windows"),
             ),
             property="packages",
         ),
+    )
+
+    sequence.add_step(
+        FileUpload(
+            workersrc="packaging/windows/%(prop:packages)s",
+            masterdest="/srv/buildbot/connectors/odbc/%(prop:tarbuildnum)s/%(prop:buildername)s/%(prop:packages)s",
+            mode=0o755,
+            url=f"{os.environ['ARTIFACTS_URL']}/connector-odbc/%(prop:tarbuildnum)s/%(prop:buildername)s/",
+        )
     )
 
     sequence.add_step(
