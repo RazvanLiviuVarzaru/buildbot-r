@@ -158,6 +158,7 @@ def main(args):
         key: VOLUMES[:]
         for key in [element.replace("/", "_") for element in MASTER_DIRECTORIES]
     }
+    # Using FileUpload step
     for master in [
         "master-nonlatent",
         "master-docker-nonstandard",
@@ -165,7 +166,11 @@ def main(args):
     ]:
         master_volumes[master].append(
             "/srv/buildbot/packages:/srv/buildbot/packages"
-        )  # Using FileUpload step
+        )
+    for master in ["master-migration"]:
+        master_volumes[master].append(
+           "/srv/buildbot/connectors:/srv/buildbot/connectors"
+        )
 
     # Capture the current environment variables' keys
     current_env_keys = set(os.environ.keys())
