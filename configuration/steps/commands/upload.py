@@ -1,14 +1,12 @@
-# MultipleFileUpload
 
 from buildbot.plugins import steps
-from buildbot.process.properties import Property
 
 
-class MultipleFileUpload:
+class FileUpload:
     def __init__(
-        self, workersrcs, masterdest, mode, url, doStepIf=True, properties=None
+        self, workersrc, masterdest, mode, url, doStepIf=True
     ):
-        self.workersrcs = workersrcs
+        self.workersrc = workersrc
         self.masterdest = masterdest
         self.mode = mode
         self.url = url
@@ -16,7 +14,7 @@ class MultipleFileUpload:
 
     def generate(self):
         return steps.MultipleFileUpload(
-            workersrcs=self.workersrcs,
+            workersrc=self.workersrc,
             masterdest=self.masterdest,
             mode=self.mode,
             url=self.url,

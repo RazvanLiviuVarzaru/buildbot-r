@@ -982,7 +982,7 @@ def windows(jobs: int, target_platform: str):
         PropFromShellStep(
             command=BashCommand(
                 name="Set prop",
-                cmd="find . -maxdepth 1 -type f -name '*.msi' -printf '%%f\n'",
+                cmd="find . -maxdepth 1 -type f -name '*.msi' -exec basename {} \\;",
                 workdir=PurePath("packaging\\windows"),
             ),
             property="packages",
