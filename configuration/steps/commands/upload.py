@@ -1,4 +1,5 @@
 from buildbot.plugins import steps
+from buildbot.plugins import util
 
 
 class FileUpload:
@@ -11,9 +12,9 @@ class FileUpload:
 
     def generate(self):
         return steps.FileUpload(
-            workersrc=self.workersrc,
-            masterdest=self.masterdest,
+            workersrc=util.Interpolate(self.workersrc),
+            masterdest=util.Interpolate(self.masterdest),
             mode=self.mode,
-            url=self.url,
+            url=util.Interpolate(self.url),
             doStepIf=self.doStepIf,
         )
