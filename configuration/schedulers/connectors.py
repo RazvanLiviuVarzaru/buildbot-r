@@ -101,6 +101,12 @@ CONC_SCHEDULERS = [
                 for builders in c_builders.RELEASE_BUILDERS_BY_ARCH.values()
                 for builder in builders
             )
+        ]
+        + [
+            c_builders.WINDOWS_32_BUILDER.name,
+            c_builders.WINDOWS_64_BUILDER.name,
+            c_builders.UBASAN_BUILDER.name,
+            c_builders.MSAN_BUILDER.name,
         ],
     ),
 ]
