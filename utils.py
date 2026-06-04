@@ -685,8 +685,8 @@ class CancelDuplicateBuildRequests(BuildStep):
     """BuildStep to cancel duplicate buildrequests for the same commit on the same builder
     if the current build is for a pull request event. It checks for other pending buildrequests
     with the same builder and if they have a sourcestamp with the same revision as
-    the current build, it cancels them. It also checks that the branch is cancelable to avoid
-    canceling important branches like main, release or merge branches.
+    the current build, it cancels them. It only cancels normal branch builds, not other
+    pull request refs, and avoids important branches like main, release or merge branches.
     """
 
     name = "cancel duplicate buildrequests"
@@ -717,13 +717,14 @@ class CancelDuplicateBuildRequests(BuildStep):
 
     @staticmethod
     def _branch_is_cancelable(branch):
-        """Should not cancel pushes on main, release, merge, or preview branches"""
+        """Only cancel duplicate builds originating from normal branch pushes."""
         if not branch:
             return False
 
         branch_lc = branch.lower()
         return (
             len(branch) > 5
+            and not branch_lc.startswith("refs/")
             and "release" not in branch_lc
             and "merge" not in branch_lc
             and "preview" not in branch_lc
@@ -780,12 +781,27 @@ class CancelDuplicateBuildRequests(BuildStep):
             self.addCompleteLog("duplicate-buildrequests", "\n".join(lines) + "\n")
             return SUCCESS
 
+        current_branches = {
+            ss.get("branch")
+            for ss in current_sourcestamps
+            if ss.get("branch") is not None
+        }
+
+        if not any(branch.startswith("refs/pull/") for branch in current_branches):
+            lines.append(
+                "Current build is a pull_request event, but no pull request ref "
+                "was found in sourcestamps; nothing to do."
+            )
+            self.addCompleteLog("duplicate-buildrequests", "\n".join(lines) + "\n")
+            return SUCCESS
+
         lines.append("Current:")
         lines.append(f"  buildid={current_buildid}")
         lines.append(f"  buildrequestid={current_buildrequestid}")
         lines.append(f"  builderid={current_builderid}")
         lines.append(f"  buildsetid={current_buildsetid}")
         lines.append(f"  revisions={sorted(current_revisions)!r}")
+        lines.append(f"  branches={sorted(current_branches)!r}")
         current_url = self._buildrequest_url(current_buildrequestid)
         if current_url:
             lines.append(f"  url={current_url}")
@@ -813,6 +829,7 @@ class CancelDuplicateBuildRequests(BuildStep):
 
         matches = []
         actions = []
+        cancel_errors = []
 
         for br in buildrequests:
             brid = br["buildrequestid"]
@@ -857,25 +874,49 @@ class CancelDuplicateBuildRequests(BuildStep):
             }
             matches.append(info)
 
-            action_prefix = "[DRY-RUN] would cancel" if self.dry_run else "Canceled"
-            msg = (
-                f"{action_prefix} buildrequest {brid} "
-                f"(claimed={br.get('claimed')}, "
-                f"revision={matched_revision!r}, "
-                f"branch={matched_branch!r})"
-            )
-            if info["url"]:
-                msg += f" url={info['url']}"
-            actions.append(msg)
-
-            if not self.dry_run:
-                yield self.master.data.control(
-                    "cancel",
-                    {"reason": "Duplicate build for same commit on same builder"},
-                    ("buildrequests", brid),
+            if self.dry_run:
+                msg = (
+                    f"[DRY-RUN] would cancel buildrequest {brid} "
+                    f"(claimed={br.get('claimed')}, "
+                    f"revision={matched_revision!r}, "
+                    f"branch={matched_branch!r})"
                 )
+                if info["url"]:
+                    msg += f" url={info['url']}"
+                actions.append(msg)
+            else:
+                try:
+                    yield self.master.data.control(
+                        "cancel",
+                        {"reason": "Duplicate build for same commit on same builder"},
+                        ("buildrequests", brid),
+                    )
+                except Exception as e:
+                    msg = (
+                        f"Failed to request cancel for buildrequest {brid} "
+                        f"(claimed={br.get('claimed')}, "
+                        f"revision={matched_revision!r}, "
+                        f"branch={matched_branch!r}, "
+                        f"error={e!r})"
+                    )
+                    if info["url"]:
+                        msg += f" url={info['url']}"
+                    actions.append(msg)
+                    cancel_errors.append(msg)
+                    log.err(e, f"Failed to request cancel for buildrequest {brid}")
+                else:
+                    msg = (
+                        f"Requested cancel for buildrequest {brid} "
+                        f"(claimed={br.get('claimed')}, "
+                        f"revision={matched_revision!r}, "
+                        f"branch={matched_branch!r})"
+                    )
+                    if info["url"]:
+                        msg += f" url={info['url']}"
+                    actions.append(msg)
 
         lines.append(f"Matched duplicate buildrequests: {len(matches)}")
+        lines.append(f"Cancel request failures: {len(cancel_errors)}")
         lines.append("")
 
         if matches:
