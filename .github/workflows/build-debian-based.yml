@@ -88,17 +88,6 @@ jobs:
             platforms: linux/amd64, linux/arm64/v8, linux/ppc64le, linux/s390x
             branch: 10.11
             nogalera: false
-
-          - image: ubuntu:25.04
-            platforms: linux/amd64, linux/arm64/v8
-            branch: 11.4
-            nogalera: false
-
-          - image: ubuntu:25.10
-            platforms: linux/amd64, linux/arm64/v8
-            branch: 11.8
-            nogalera: false
-
           - image: ubuntu:26.04
             platforms: linux/amd64, linux/arm64/v8, linux/ppc64le, linux/s390x
             branch: 11.8

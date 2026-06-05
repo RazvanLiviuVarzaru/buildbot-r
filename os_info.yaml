@@ -63,8 +63,8 @@ debian-12:
   arch:
     - amd64
     - aarch64
-    - ppc64le
     - x86
+    - ppc64le
   type: deb
 debian-13:
   image_tag: debian13
@@ -87,14 +87,6 @@ debian-sid:
     - ppc64le
     - x86
   type: deb
-fedora-42:
-  image_tag: fedora42
-  tags:
-    - release_packages
-  arch:
-    - amd64
-    - aarch64
-  type: rpm
 fedora-43:
   image_tag: fedora43
   tags:
@@ -110,13 +102,6 @@ openeuler-2403:
   arch:
     - amd64
     - aarch64
-  type: rpm
-opensuse-1506:
-  image_tag: opensuse1506
-  tags:
-    - release_packages
-  arch:
-    - amd64
   type: rpm
 opensuse-1600:
   image_tag: opensuse1600
@@ -223,22 +208,6 @@ ubuntu-2404:
     - aarch64
     - ppc64le
     - s390x
-  type: deb
-ubuntu-2504:
-  image_tag: ubuntu25.04
-  tags:
-    - release_packages
-  arch:
-    - amd64
-    - aarch64
-  type: deb
-ubuntu-2510:
-  image_tag: ubuntu25.10
-  tags:
-    - release_packages
-  arch:
-    - amd64
-    - aarch64
   type: deb
 ubuntu-2604:
   image_tag: ubuntu26.04

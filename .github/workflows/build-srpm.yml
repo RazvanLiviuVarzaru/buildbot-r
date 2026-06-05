@@ -28,10 +28,6 @@ jobs:
       fail-fast: false
       matrix:
         include:
-          - dockerfile: srpm.Dockerfile
-            image: fedora:42
-            tag: fedora42-srpm
-            platforms: linux/amd64, linux/arm64/v8
 
           - dockerfile: srpm.Dockerfile
             image: fedora:43
