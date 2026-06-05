@@ -228,7 +228,6 @@ def generate_deb_release_sq(ops, version):
 RELEASE_BUILDERS_BY_ARCH = {"amd64": [], "aarch64": []}
 for arch in ["amd64", "aarch64"]:
     for ops, version in [
-        ("fedora", "42"),
         ("fedora", "43"),
         ("sles", "1507"),
         ("sles", "1600"),

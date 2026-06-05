@@ -26,13 +26,6 @@ jobs:
       fail-fast: false
       matrix:
         include:
-          - image: fedora:41
-            platforms: linux/amd64, linux/arm64/v8
-            nogalera: false
-
-          - image: fedora:42
-            platforms: linux/amd64, linux/arm64/v8
-            nogalera: false
 
           - image: fedora:43
             platforms: linux/amd64, linux/arm64/v8
@@ -42,9 +35,9 @@ jobs:
             platforms: linux/amd64, linux/arm64/v8
             nogalera: True
 
-          - image: fedora:40
+          - image: fedora:44
             platforms: linux/amd64
-            tag: fedora40-valgrind
+            tag: fedora44-valgrind
             install_valgrind: "true"
             nogalera: true
 

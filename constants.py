@@ -58,7 +58,7 @@ GITHUB_STATUS_BUILDERS = [
     "amd64-debian-12-deb-autobake",
     "amd64-debian-11-debug-ps-embedded",
     "amd64-msan-clang-20",
-    "amd64-fedora-42",
+    "amd64-fedora-43",
     "amd64-ubuntu-2204-debug",
     "amd64-ubuntu-2204-debug-ps",
     "amd64-windows",
@@ -125,7 +125,7 @@ SUPPORTED_PLATFORMS["10.6"] = [
     "amd64-debian-11-debug-ps-embedded",
     "amd64-debian-12-asan-ubsan",
     "amd64-debian-12-rocksdb",
-    "amd64-fedora-40-valgrind",
+    "amd64-fedora-44-valgrind",
     "amd64-freebsd-14",
     "amd64-msan-clang-20",
     "amd64-openeuler-2403",
@@ -171,16 +171,13 @@ SUPPORTED_PLATFORMS["10.10"] += SUPPORTED_PLATFORMS["10.9"]
 SUPPORTED_PLATFORMS["10.11"] = [
     "aarch64-centos-stream10",
     "aarch64-debian-12",
-    "aarch64-fedora-42",
     "aarch64-rhel-10",
     "aarch64-ubuntu-2404",
     "amd64-centos-stream10",
     "amd64-debian-12",
     "amd64-debian-12-deb-autobake-migration",
     "amd64-debian-12-debug-embedded",
-    "amd64-fedora-42",
     "amd64-msan-clang-20-debug",
-    "amd64-opensuse-1506",
     "amd64-rhel-10",
     "amd64-ubasan-clang-20",
     "amd64-ubasan-clang-20-debug",
@@ -197,15 +194,11 @@ SUPPORTED_PLATFORMS["10.11"] += SUPPORTED_PLATFORMS["10.10"]
 
 SUPPORTED_PLATFORMS["11.0"] = SUPPORTED_PLATFORMS["10.11"].copy()
 SUPPORTED_PLATFORMS["11.0"].remove("amd64-rhel-7")
+SUPPORTED_PLATFORMS["11.0"].remove("amd64-fedora-44-valgrind")
 SUPPORTED_PLATFORMS["11.1"] = SUPPORTED_PLATFORMS["11.0"].copy()
 SUPPORTED_PLATFORMS["11.2"] = SUPPORTED_PLATFORMS["11.1"].copy()
 SUPPORTED_PLATFORMS["11.3"] = SUPPORTED_PLATFORMS["11.2"].copy()
 SUPPORTED_PLATFORMS["11.4"] = SUPPORTED_PLATFORMS["11.3"].copy()
-SUPPORTED_PLATFORMS["11.4"] += [
-    "aarch64-ubuntu-2504",
-    "amd64-ubuntu-2504",
-]
-
 SUPPORTED_PLATFORMS["11.5"] = SUPPORTED_PLATFORMS["11.4"].copy()
 SUPPORTED_PLATFORMS["11.5"].remove("amd64-centos-7-bintar")
 SUPPORTED_PLATFORMS["11.6"] = SUPPORTED_PLATFORMS["11.5"].copy()
@@ -226,8 +219,6 @@ SUPPORTED_PLATFORMS["11.8"] += [
     "s390x-sles-1507",
     "amd64-sles-1600",
     "s390x-sles-1600",
-    "aarch64-ubuntu-2510",
-    "amd64-ubuntu-2510",
     "aarch64-fedora-43",
     "amd64-fedora-43",
     "aarch64-ubuntu-2604",
