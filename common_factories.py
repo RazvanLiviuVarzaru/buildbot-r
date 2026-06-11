@@ -485,6 +485,11 @@ def addS3Tests(factory, mtrDbPool):
                 "mb",
                 util.Interpolate("minio/%(prop:buildername)s-%(prop:buildnumber)s"),
             ],
+            env={
+                "MC_HOST_minio": util.Interpolate(
+                    "https://%(secret:minio_access_key)s:%(secret:minio_secret_key)s@minio.mariadb.org"
+                ),
+            },
             doStepIf=runS3,
         )
     )
@@ -538,6 +543,11 @@ def addS3Tests(factory, mtrDbPool):
                 "--force",
                 util.Interpolate("minio/%(prop:buildername)s-%(prop:buildnumber)s"),
             ],
+            env={
+                "MC_HOST_minio": util.Interpolate(
+                    "https://%(secret:minio_access_key)s:%(secret:minio_secret_key)s@minio.mariadb.org"
+                ),
+            },
             doStepIf=runS3,
         )
     )
