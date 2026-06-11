@@ -478,6 +478,7 @@ def addS3Tests(factory, mtrDbPool):
     factory.addStep(
         steps.MasterShellCommand(
             name="Create minio S3 bucket",
+            logEnviron=False,
             alwaysRun=True,
             command=[
                 "mc",
@@ -530,6 +531,7 @@ def addS3Tests(factory, mtrDbPool):
         steps.MasterShellCommand(
             name="Delete minio S3 bucket",
             alwaysRun=True,
+            logEnviron=False,
             command=[
                 "mc",
                 "rb",
