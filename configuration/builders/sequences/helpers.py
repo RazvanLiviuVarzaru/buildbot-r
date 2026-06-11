@@ -226,13 +226,7 @@ def get_mtr_s3_steps(
     steps = []
     steps.append(
         MasterShellStep(
-            command=CreateS3Bucket(bucket=f"%(prop:buildername)s-%(prop:buildnumber)s"),
-            env_vars=[
-                (
-                    "MC_HOST_minio",
-                    "https://%(secret:minio_access_key)s:%(secret:minio_secret_key)s@minio.mariadb.org",
-                ),
-            ],
+            command=CreateS3Bucket(bucket=f"%(prop:buildername)s-%(prop:buildnumber)s")
         )
     )
 
@@ -278,12 +272,6 @@ def get_mtr_s3_steps(
     steps.append(
         MasterShellStep(
             command=DeleteS3Bucket(bucket=f"%(prop:buildername)s-%(prop:buildnumber)s"),
-            env_vars=[
-                (
-                    "MC_HOST_minio",
-                    "https://%(secret:minio_access_key)s:%(secret:minio_secret_key)s@minio.mariadb.org",
-                ),
-            ],
             options=StepOptions(alwaysRun=True),
         ),
     )
