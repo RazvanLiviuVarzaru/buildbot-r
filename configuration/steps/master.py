@@ -35,6 +35,7 @@ class MasterShellStep(BaseStep):
     def generate(self) -> IBuildStep:
         return steps.MasterShellCommand(
             name=self.name,
+            logEnviron=False,
             command=[*self.prefix_cmd, *self.command.as_cmd_arg()],
             interruptSignal=self.interrupt_signal,
             **self.options.getopt,
