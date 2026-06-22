@@ -95,6 +95,14 @@ fedora-43:
     - amd64
     - aarch64
   type: rpm
+fedora-44:
+  image_tag: fedora44
+  tags:
+    - release_packages
+  arch:
+    - amd64
+    - aarch64
+  type: rpm
 openeuler-2403:
   image_tag: openeuler2403
   tags:
