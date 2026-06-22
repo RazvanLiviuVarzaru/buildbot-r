@@ -89,6 +89,10 @@ BUILDERS_S3_MTR = [
     "amd64-ubuntu-2204-debug",
     "s390x-sles-1506",
 ]
+BUILDERS_SSL_MTR = [
+    "amd64-fedora-44",
+    "amd64-rhel-8",
+]
 
 # Defines branches for which we save packages
 SAVED_PACKAGE_BRANCHES = BRANCHES_MAIN + [
@@ -268,6 +272,7 @@ TEST_TYPE_TO_MTR_ARG = {
     "emb-ps": "--embedded --ps-protocol",
     "msan": "",
     "nm": "",
+    "nm_ssl": "--ssl",
     "nm_engines": "--suite=spider,spider/bg,engines/funcs,engines/iuds --big --mysqld=--open-files-limit=0 --mysqld=--log-warnings=1",
     "nm_func_1_2": "--suite=funcs_1,funcs_2,stress,jp --big --mysqld=--open-files-limit=0 --mysqld=--log-warnings=1",
     "optimizer_trace": "--suite=main --mysqld=--optimizer_trace=enabled=on",
