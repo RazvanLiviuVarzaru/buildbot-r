@@ -221,6 +221,8 @@ SUPPORTED_PLATFORMS["11.8"] += [
     "s390x-sles-1600",
     "aarch64-fedora-43",
     "amd64-fedora-43",
+    "aarch64-fedora-44",
+    "amd64-fedora-44",
     "aarch64-ubuntu-2604",
     "amd64-ubuntu-2604",
     "amd64v3-ubuntu-2604-deb-autobake-migration",
