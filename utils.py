@@ -1001,16 +1001,22 @@ class CancelOlderSameBranchRequests(BuildStep):
         current_buildrequest = yield self.master.data.get(
             ("buildrequests", current_buildrequestid)
         )
+        current_claimed_at = current_buildrequest.get("claimed_at")
         current_buildsetid = current_buildrequest["buildsetid"]
 
         current_buildset = yield self.master.data.get(("buildsets", current_buildsetid))
         current_submitted_at = current_buildset.get("submitted_at")
         current_sourcestamps = current_buildset.get("sourcestamps", [])
 
-        if current_submitted_at is None or not current_sourcestamps:
+        if (
+            current_claimed_at is None
+            or current_submitted_at is None
+            or not current_sourcestamps
+        ):
             self.addCompleteLog(
                 "summary",
-                "Current buildset is missing submitted_at or sourcestamps; nothing to do.\n",
+                "Current buildrequest is missing claimed_at or current buildset "
+                "is missing submitted_at or sourcestamps; nothing to do.\n",
             )
             return SUCCESS
 
@@ -1046,6 +1052,7 @@ class CancelOlderSameBranchRequests(BuildStep):
         lines.append(f"  builderid={current_builderid}")
         lines.append(f"  buildername={current_buildername!r}")
         lines.append(f"  buildsetid={current_buildsetid}")
+        lines.append(f"  claimed_at={current_claimed_at}")
         lines.append(f"  submitted_at={current_submitted_at}")
         current_url = self._buildrequest_url(current_buildrequestid)
         if current_url:
@@ -1072,14 +1079,14 @@ class CancelOlderSameBranchRequests(BuildStep):
 
             other_buildsetid = br["buildsetid"]
             other_buildset = yield self.master.data.get(("buildsets", other_buildsetid))
-            other_submitted_at = other_buildset.get("submitted_at")
+            other_submitted_at = br.get("submitted_at")
             other_sourcestamps = other_buildset.get("sourcestamps", [])
 
             if other_submitted_at is None:
                 continue
 
-            # Newest wins: only cancel OLDER matching requests
-            if other_submitted_at >= current_submitted_at:
+            # Newest wins: only cancel requests created before this request was claimed.
+            if other_submitted_at >= current_claimed_at:
                 continue
 
             # A match means same branch+repository+codebase but different revision
