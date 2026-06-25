@@ -723,17 +723,45 @@ class CancelDuplicateBuildRequests(BuildStep):
         )
 
     @staticmethod
-    def _branch_is_cancelable(branch):
-        """Only let disposable normal branch pushes yield to pull request builds."""
+    def _branch_rejection_reasons(branch):
+        """Explain why a branch push must not yield to a pull request build."""
+        reasons = []
+
         if not branch:
-            return False
+            return ["branch is missing"]
 
         branch_lc = branch.lower()
-        return (
-            len(branch) > 5
-            and not branch_lc.startswith("refs/")
-            and not fnmatch_any(branch, SAVED_PACKAGE_BRANCHES)
-        )
+        if len(branch) <= 5:
+            reasons.append(
+                f"branch is only {len(branch)} characters; it must be longer than 5"
+            )
+        if branch_lc.startswith("refs/"):
+            reasons.append("branch starts with 'refs/'")
+
+        matching_patterns = [
+            pattern
+            for pattern in SAVED_PACKAGE_BRANCHES
+            if fnmatch.fnmatch(branch, pattern)
+        ]
+        if matching_patterns:
+            reasons.append(
+                f"branch matches saved-package pattern(s) {matching_patterns!r}"
+            )
+
+        return reasons
+
+    @classmethod
+    def _branch_is_cancelable(cls, branch):
+        """Only let disposable normal branch pushes yield to pull request builds."""
+        return not cls._branch_rejection_reasons(branch)
+
+    @classmethod
+    def _sourcestamp_rejection_reasons(cls, ss):
+        reasons = []
+        if ss.get("revision") is None:
+            reasons.append("revision is missing")
+        reasons.extend(cls._branch_rejection_reasons(ss.get("branch")))
+        return reasons
 
     @defer.inlineCallbacks
     def _find_pull_request_matches(self, buildrequests, current_targets, source):
@@ -830,9 +858,14 @@ class CancelDuplicateBuildRequests(BuildStep):
 
         if not current_targets:
             lines.append(
-                "Current buildset has no cancelable push sourcestamp with a "
-                "revision; nothing to do."
+                "No current sourcestamp is eligible for duplicate cancellation; "
+                "nothing to do."
             )
+            lines.append("Sourcestamp rejection details:")
+            for i, ss in enumerate(current_sourcestamps, 1):
+                reasons = self._sourcestamp_rejection_reasons(ss)
+                lines.append(f"  [{i}] {self._fmt_ss(ss)}")
+                lines.extend(f"      - {reason}" for reason in reasons)
             self.addCompleteLog("duplicate-buildrequests", "\n".join(lines) + "\n")
             return SUCCESS
 
