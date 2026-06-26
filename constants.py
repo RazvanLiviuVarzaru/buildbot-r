@@ -267,7 +267,7 @@ TEST_TYPE_TO_MTR_ARG = {
     "debug-emb": "--embedded",
     "debug-emb-ps": "--embedded --ps-protocol",
     "debug-ps": "--ps-protocol",
-    "debug-view": "--view-protocol",
+    "debug-view": "--suite=main --view-protocol",
     "emb": "--embedded",
     "emb-ps": "--embedded --ps-protocol",
     "msan": "",

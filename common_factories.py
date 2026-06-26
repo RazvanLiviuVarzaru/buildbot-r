@@ -1,5 +1,6 @@
 import os
 import re
+from typing import Union
 
 from twisted.internet import defer
 
@@ -572,9 +573,12 @@ def addS3Tests(factory, mtrDbPool):
     return factory
 
 
-def getQuickBuildFactory(test_type, mtrDbPool):
+def getQuickBuildFactory(test_type: Union[str, list[str]], mtrDbPool):
     f = getBuildFactoryPreTest()
-    addTests(f, test_type, mtrDbPool, util.Property("mtr_additional_args", default=""))
+    if isinstance(test_type, str):
+        test_type = [test_type]
+    for typ in test_type:
+        addTests(f, typ, mtrDbPool, util.Property("mtr_additional_args", default=""))
     addGaleraTests(f, mtrDbPool)
     addS3Tests(f, mtrDbPool)
     return addPostTests(f)
