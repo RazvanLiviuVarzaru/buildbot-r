@@ -14,8 +14,9 @@ server {
 	}
 }
 
-# Default rate limited zone, with 30 requests per minute
-limit_req_zone $request_uri zone=bb:10m rate=30r/m;
+# Per-client rate limited zone. This catches scanners walking many unique
+# URLs without sharing one bucket across all visitors of a popular URL.
+limit_req_zone $binary_remote_addr zone=bb:10m rate=10r/s;
 client_max_body_size 10M;
 
 server {
@@ -32,9 +33,9 @@ server {
 	proxy_set_header X-Forwarded-Server  $host;
 	proxy_set_header X-Forwarded-Host  $host;
 
-	# Use default zone for rate limiting, allow burst of 10 requests with
-	# no delay
-	limit_req zone=bb burst=10 nodelay;
+	# Allow normal page/API bursts, but reject sustained aggressive clients.
+	limit_req zone=bb burst=200 nodelay;
+	limit_req_status 429;
 
 	location / {
 		proxy_pass http://127.0.0.1:8010;
