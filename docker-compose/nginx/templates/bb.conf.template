@@ -16,7 +16,7 @@ server {
 
 # Per-client rate limited zone. This catches scanners walking many unique
 # URLs without sharing one bucket across all visitors of a popular URL.
-limit_req_zone $binary_remote_addr zone=bb:10m rate=10r/s;
+limit_req_zone $binary_remote_addr zone=bb:10m rate=35r/s;
 client_max_body_size 10M;
 
 server {
@@ -34,7 +34,7 @@ server {
 	proxy_set_header X-Forwarded-Host  $host;
 
 	# Allow normal page/API bursts, but reject sustained aggressive clients.
-	limit_req zone=bb burst=200 nodelay;
+	limit_req zone=bb burst=150 nodelay;
 	limit_req_status 429;
 
 	location / {
