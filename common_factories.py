@@ -278,7 +278,6 @@ def addWinTests(
 
     factory.addStep(
         steps.MTR(
-            addLogs=True,
             name=f"{mtr_test_type} test",
             test_type=mtr_test_type,
             command=[
