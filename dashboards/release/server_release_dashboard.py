@@ -1,3 +1,5 @@
+from __future__ import annotations
+
 import os
 import time
 from collections import defaultdict
@@ -15,6 +17,12 @@ JIRA_API_URL = "https://jira.mariadb.org/rest/api/2"
 CACHE_DURATION = (
     10 * 60
 )  # Cache the rendered page for 10 minutes to avoid excessive API calls
+
+
+def _remove_suffix(value, suffix):
+    if value.endswith(suffix):
+        return value[: -len(suffix)]
+    return value
 
 
 @dataclass(frozen=True)
@@ -184,15 +192,16 @@ class Dashboard:
         data = response.json()
         builders = {}
         for b in data.get("builders", []):
-            if b.get("name") == "tarball-docker":
+            builder_name = b.get("name") or ""
+            release_builder_name = _remove_suffix(
+                _remove_suffix(builder_name, "-rpm-autobake"), "-deb-autobake"
+            )
+            if builder_name == "tarball-docker":
                 self._tarball_docker_builder_id = b.get("builderid")
             for series, platforms in self._supported_platforms.items():
                 if (
                     "release_packages" in b.get("tags", [])
-                    and b.get("name")
-                    .removesuffix("-rpm-autobake")
-                    .removesuffix("-deb-autobake")
-                    in platforms
+                    and release_builder_name in platforms
                 ):
                     if series not in builders:
                         builders[series] = []

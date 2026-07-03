@@ -1,8 +1,11 @@
+from __future__ import annotations
+
 import fnmatch
 
 from buildbot.buildrequest import BuildRequest
 from buildbot.process.builder import Builder
 from buildbot.process.workerforbuilder import AbstractWorkerForBuilder
+
 from constants import RELEASE_BRANCHES, SAVED_PACKAGE_BRANCHES
 
 

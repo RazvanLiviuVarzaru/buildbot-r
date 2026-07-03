@@ -1,7 +1,8 @@
+from __future__ import annotations
+
 import os
 
 import yaml
-
 from buildbot.plugins import util
 
 # Local

@@ -1,3 +1,5 @@
+from __future__ import annotations
+
 from configuration.builders.infra.runtime import Sidecar
 from configuration.steps.base import StepOptions
 from configuration.steps.commands.infra import (

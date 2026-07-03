@@ -1,11 +1,12 @@
+from __future__ import annotations
+
 from abc import ABC, abstractmethod
 from dataclasses import dataclass
 from pathlib import Path, PurePath
 
-from twisted.internet import defer
-
 from buildbot.plugins import steps, util
 from buildbot.process.properties import Interpolate
+from twisted.internet import defer
 
 # Use if you need to load script files to commands
 COMMAND_SCRIPT_BASE_DIR = Path(__file__).parent / "scripts"

@@ -1,5 +1,8 @@
+from __future__ import annotations
+
 from buildbot.interfaces import IBuildStep
 from buildbot.plugins import steps
+
 from configuration.steps.base import BaseStep, StepOptions
 from configuration.steps.commands.base import Command
 

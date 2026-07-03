@@ -1,7 +1,10 @@
+from __future__ import annotations
+
 from enum import Enum
 from pathlib import PurePath
 
 from buildbot.plugins import util
+
 from configuration.steps.commands.base import Command
 from configuration.steps.generators.cmake.options import BuildType
 

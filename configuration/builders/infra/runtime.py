@@ -1,3 +1,5 @@
+from __future__ import annotations
+
 import copy
 from dataclasses import dataclass, field
 from pathlib import Path, PurePath
@@ -5,6 +7,7 @@ from typing import Iterable, Optional
 
 from buildbot.interfaces import IBuildStep
 from buildbot.plugins import steps, util
+
 from configuration.steps.base import BaseStep
 from configuration.steps.remote import ShellStep
 

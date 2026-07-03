@@ -1,3 +1,5 @@
+from __future__ import annotations
+
 import fnmatch
 import os
 import re
@@ -5,10 +7,6 @@ from datetime import datetime
 from typing import Any, Generator, Tuple
 
 import docker
-from pyzabbix import ZabbixAPI
-from twisted.internet import defer, threads
-from twisted.python import log
-
 from buildbot.buildrequest import BuildRequest
 from buildbot.data.resultspec import Filter
 from buildbot.interfaces import IProperties
@@ -19,6 +17,10 @@ from buildbot.process.buildstep import BuildStep
 from buildbot.process.results import FAILURE, SUCCESS
 from buildbot.process.workerforbuilder import AbstractWorkerForBuilder
 from buildbot.worker import AbstractWorker
+from pyzabbix import ZabbixAPI
+from twisted.internet import defer, threads
+from twisted.python import log
+
 from constants import (
     ALL_BB_TEST_BRANCHES,
     BUILDERS_AUTOBAKE,

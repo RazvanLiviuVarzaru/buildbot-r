@@ -1,6 +1,9 @@
+from __future__ import annotations
+
 from pathlib import PurePath
 
 from buildbot.plugins import util
+
 from configuration.steps.commands.base import BashScriptCommand, Command
 
 

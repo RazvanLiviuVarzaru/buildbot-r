@@ -1,8 +1,11 @@
+from __future__ import annotations
+
 import os
 from enum import Enum
 from pathlib import PurePath
 
 from buildbot.plugins import util
+
 from configuration.steps.commands.base import BashScriptCommand, Command
 from configuration.steps.generators.mtr.generator import MTRGenerator
 

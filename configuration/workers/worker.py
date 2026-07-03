@@ -1,6 +1,9 @@
+from __future__ import annotations
+
 from collections import defaultdict
 
 from buildbot.plugins import worker
+
 from configuration.workers.base import WorkerBase
 
 

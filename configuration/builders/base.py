@@ -1,3 +1,5 @@
+from __future__ import annotations
+
 import os
 from functools import partial
 from typing import Callable, Iterable
@@ -7,6 +9,7 @@ from buildbot.process.builder import Builder
 from buildbot.process.buildrequest import BuildRequest
 from buildbot.process.factory import BuildFactory
 from buildbot.process.workerforbuilder import AbstractWorkerForBuilder
+
 from configuration.builders.callables import canStartBuild, nextBuild
 from configuration.builders.infra.runtime import BuildSequence, Sidecar
 from configuration.steps.processors import (

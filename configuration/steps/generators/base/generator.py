@@ -1,3 +1,5 @@
+from __future__ import annotations
+
 from typing import Iterable
 
 from configuration.steps.generators.base.exceptions import DuplicateFlagException
