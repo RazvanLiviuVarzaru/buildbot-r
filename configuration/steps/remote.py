@@ -5,7 +5,7 @@ from buildbot.plugins import steps, util
 from buildbot.process.results import SUCCESS, WARNINGS
 
 from configuration.steps.base import BaseStep, StepOptions
-from configuration.steps.commands.base import URL, Command, ShellCommandWithURL
+from configuration.steps.commands.base import URL, Command
 
 
 class ShellStep(BaseStep):
@@ -54,13 +54,15 @@ class ShellStep(BaseStep):
 
     def generate(self) -> IBuildStep:
         workdir = self._set_workdir()
-        return ShellCommandWithURL(
+        # TODO: ShellCommandWithURL is temporarily commented out to avoid
+        # old-style step warnings while testing newer Buildbot versions. Restore
+        # URL rendering with a new-style shell step before Buildbot 4.x.
+        return steps.ShellCommand(
             name=self.name,
             command=[*self.prefix_cmd, *self.command.as_cmd_arg()],
             interruptSignal=self.interrupt_signal,
             **self.options.getopt,
             workdir=workdir,
-            url=self.url,
             timeout=self.timeout,
             env={k: util.Interpolate(v) for k, v in self.env_vars},
             decodeRC=self.decode_return_code,

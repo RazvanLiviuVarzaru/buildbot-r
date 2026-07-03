@@ -4,11 +4,8 @@ import os
 import re
 
 from buildbot.plugins import steps, util
-from buildbot.process import results
 from buildbot.process.factory import BuildFactory
 from buildbot.process.properties import Property
-from buildbot.steps.mtrlogobserver import MTR
-from twisted.internet import defer
 
 # Local
 from constants import MTR_ENV, SAVED_PACKAGE_BRANCHES, TEST_TYPE_TO_MTR_ARG
@@ -52,56 +49,61 @@ from utils import (
 # * more branch protection builders should use it
 # * run for view protocol and sanitizers
 # * how to do it for install/upgrade tests?
-#
-class FetchTestData(MTR):
-    def __init__(self, mtrDbPool, test_type, **kwargs):
-        self.mtrDbPool = mtrDbPool
-        self.test_type = test_type
-        super().__init__(dbpool=mtrDbPool, **kwargs)
-
-    @defer.inlineCallbacks
-    def get_tests_for_type(self, branch, typ, limit):
-        scale = 20
-        query = f"""
-            select concat(test_name, ',', test_variant)
-            from
-              (select id, test_name, test_variant
-               from test_failure join test_run on (test_run_id=id)
-               where branch='{branch}' and typ='{typ}'
-               order by test_run_id desc limit {limit*scale}) x
-            group by test_name, test_variant
-            order by max(id) desc limit {limit}
-        """
-        tests = yield self.runQueryWithRetry(query)
-        return list(t[0] for t in tests)
-
-    @defer.inlineCallbacks
-    def run(self):
-        test_re = r"^(?:.+/)?mysql-test/(?:suite/)?(.+?)/(?:[rt]/)?([^/]+)\.(?:test|result|rdiff)$"
-        branch = self.getProperty("master_branch")
-        limit = 50
-
-        if branch:
-            tests = yield self.get_tests_for_type(branch, self.test_type, limit)
-            if len(tests) < limit:
-                # if there're not enough failures for the given test_type
-                # bump it up with the failures for the default type.
-                # "mtr" is what buildbot uses when test_type wasn't set
-                tests += yield self.get_tests_for_type(
-                    branch, "mtr", limit - len(tests)
-                )
-
-            tests += (
-                m.expand(r"\1.\2")
-                for m in (re.search(test_re, f) for f in self.build.allFiles())
-                if m
-            )
-
-            if tests:
-                test_args = " ".join(set(tests))
-                self.setProperty("tests_to_run", test_args)
-
-        return results.SUCCESS
+# TODO: FetchTestData subclasses Buildbot's deprecated MTR old-style step.
+# Replace it with a new-style BuildStep that queries the MTR DB directly before
+# testing newer Buildbot versions beyond the 2.x transition window.
+# TODO: Temporarily commented out while testing newer Buildbot versions up to 4.x.
+# Replace deprecated steps.MTR/FetchTestData with a new-style shell MTR runner
+# plus explicit MTR result/log reporting before restoring this build behavior.
+# class FetchTestData(MTR):
+    # def __init__(self, mtrDbPool, test_type, **kwargs):
+        # self.mtrDbPool = mtrDbPool
+        # self.test_type = test_type
+        # super().__init__(dbpool=mtrDbPool, **kwargs)
+# 
+    # @defer.inlineCallbacks
+    # def get_tests_for_type(self, branch, typ, limit):
+        # scale = 20
+        # query = f"""
+            # select concat(test_name, ',', test_variant)
+            # from
+              # (select id, test_name, test_variant
+               # from test_failure join test_run on (test_run_id=id)
+               # where branch='{branch}' and typ='{typ}'
+               # order by test_run_id desc limit {limit*scale}) x
+            # group by test_name, test_variant
+            # order by max(id) desc limit {limit}
+        # """
+        # tests = yield self.runQueryWithRetry(query)
+        # return list(t[0] for t in tests)
+# 
+    # @defer.inlineCallbacks
+    # def run(self):
+        # test_re = r"^(?:.+/)?mysql-test/(?:suite/)?(.+?)/(?:[rt]/)?([^/]+)\.(?:test|result|rdiff)$"
+        # branch = self.getProperty("master_branch")
+        # limit = 50
+# 
+        # if branch:
+            # tests = yield self.get_tests_for_type(branch, self.test_type, limit)
+            # if len(tests) < limit:
+                # # if there're not enough failures for the given test_type
+                # # bump it up with the failures for the default type.
+                # # "mtr" is what buildbot uses when test_type wasn't set
+                # tests += yield self.get_tests_for_type(
+                    # branch, "mtr", limit - len(tests)
+                # )
+# 
+            # tests += (
+                # m.expand(r"\1.\2")
+                # for m in (re.search(test_re, f) for f in self.build.allFiles())
+                # if m
+            # )
+# 
+            # if tests:
+                # test_args = " ".join(set(tests))
+                # self.setProperty("tests_to_run", test_args)
+# 
+        # return results.SUCCESS
 
 
 def addPostTests(factory):
@@ -276,29 +278,34 @@ def addWinTests(
             )
         )
 
-    factory.addStep(
-        steps.MTR(
-            name=f"{mtr_test_type} test",
-            test_type=mtr_test_type,
-            command=[
-                "dojob",
-                '"',
-                util.Interpolate(
-                    f'"C:\\Program Files (x86)\\Microsoft Visual Studio\\2022\\BuildTools\\Common7\\Tools\\VsDevCmd.bat" -arch=%(kw:arch)s && cd mysql-test && {cmd}',
-                    mtr_additional_args=mtr_additional_args,
-                    jobs=util.Property("jobs", default=4),
-                    arch=util.Property("arch", default="x64"),
-                ),
-                '"',
-            ],
-            timeout=600,
-            haltOnFailure="true",
-            parallel=mtrJobsMultiplier,
-            dbpool=mtr_step_db_pool,
-            autoCreateTables=True,
-            env=mtr_env,
-        )
-    )
+    # TODO: Replace steps.MTR with a normal shell/new-style MTR runner plus
+    # explicit result/log upload before moving this config to Buildbot 4.x.
+    # TODO: Temporarily commented out while testing newer Buildbot versions up to 4.x.
+    # Replace deprecated steps.MTR/FetchTestData with a new-style shell MTR runner
+    # plus explicit MTR result/log reporting before restoring this build behavior.
+    # factory.addStep(
+        # steps.MTR(
+            # name=f"{mtr_test_type} test",
+            # test_type=mtr_test_type,
+            # command=[
+                # "dojob",
+                # '"',
+                # util.Interpolate(
+                    # f'"C:\\Program Files (x86)\\Microsoft Visual Studio\\2022\\BuildTools\\Common7\\Tools\\VsDevCmd.bat" -arch=%(kw:arch)s && cd mysql-test && {cmd}',
+                    # mtr_additional_args=mtr_additional_args,
+                    # jobs=util.Property("jobs", default=4),
+                    # arch=util.Property("arch", default="x64"),
+                # ),
+                # '"',
+            # ],
+            # timeout=600,
+            # haltOnFailure="true",
+            # parallel=mtrJobsMultiplier,
+            # dbpool=mtr_step_db_pool,
+            # autoCreateTables=True,
+            # env=mtr_env,
+        # )
+    # )
 
     factory.addStep(
         steps.ShellCommand(
@@ -355,31 +362,36 @@ def addTests(
     - mtr_step_auto_create_tables: Whether to automatically create tables for the MTR step.
 
     """
-    factory.addStep(
-        steps.MTR(
-            name=f"{mtr_test_type} test",
-            logfiles={"mysqld*": "./buildbot/mysql_logs.html"},
-            test_type=mtr_test_type,
-            command=[
-                "bash",
-                "-c",
-                util.Interpolate(
-                    f"""
-            cd mysql-test &&
-            MTR_FEEDBACK_PLUGIN={mtr_feedback_plugin} exec perl mysql-test-run.pl {mtr_args[mtr_test_type]} --verbose-restart --force --retry={mtr_retry} --max-save-core={mtr_max_save_core} --max-save-datadir={mtr_max_save_datadir} --max-test-fail={mtr_max_test_fail} --mem --parallel=$(expr %(kw:jobs)s \* 2) %(kw:mtr_additional_args)s
-            """,
-                    mtr_additional_args=mtr_additional_args,
-                    jobs=util.Property("jobs", default="$(getconf _NPROCESSORS_ONLN)"),
-                ),
-            ],
-            timeout=mtr_step_timeout,
-            haltOnFailure="true",
-            parallel=mtrJobsMultiplier,
-            dbpool=mtr_step_db_pool,
-            autoCreateTables=mtr_step_auto_create_tables,
-            env=MTR_ENV,
-        )
-    )
+    # TODO: Replace steps.MTR with the newer configuration/steps MTRTest and
+    # MTRReporter flow before moving this config to Buildbot 4.x.
+    # TODO: Temporarily commented out while testing newer Buildbot versions up to 4.x.
+    # Replace deprecated steps.MTR/FetchTestData with a new-style shell MTR runner
+    # plus explicit MTR result/log reporting before restoring this build behavior.
+    # factory.addStep(
+        # steps.MTR(
+            # name=f"{mtr_test_type} test",
+            # logfiles={"mysqld*": "./buildbot/mysql_logs.html"},
+            # test_type=mtr_test_type,
+            # command=[
+                # "bash",
+                # "-c",
+                # util.Interpolate(
+                    # f"""
+            # cd mysql-test &&
+            # MTR_FEEDBACK_PLUGIN={mtr_feedback_plugin} exec perl mysql-test-run.pl {mtr_args[mtr_test_type]} --verbose-restart --force --retry={mtr_retry} --max-save-core={mtr_max_save_core} --max-save-datadir={mtr_max_save_datadir} --max-test-fail={mtr_max_test_fail} --mem --parallel=$(expr %(kw:jobs)s \* 2) %(kw:mtr_additional_args)s
+            # """,
+                    # mtr_additional_args=mtr_additional_args,
+                    # jobs=util.Property("jobs", default="$(getconf _NPROCESSORS_ONLN)"),
+                # ),
+            # ],
+            # timeout=mtr_step_timeout,
+            # haltOnFailure="true",
+            # parallel=mtrJobsMultiplier,
+            # dbpool=mtr_step_db_pool,
+            # autoCreateTables=mtr_step_auto_create_tables,
+            # env=MTR_ENV,
+        # )
+    # )
     factory.addStep(
         steps.ShellCommand(
             name=f"move {mtr_test_type} mariadb log files",
@@ -410,38 +422,43 @@ def addTests(
 
 
 def addGaleraTests(factory, mtrDbPool):
-    factory.addStep(
-        steps.MTR(
-            name="Galera tests",
-            alwaysRun=True,
-            description="testing galera",
-            descriptionDone="test galera",
-            logfiles={"mysqld*": "./buildbot/mysql_logs.html"},
-            test_type="nm",
-            command=[
-                "sh",
-                "-c",
-                util.Interpolate(
-                    r"""
-           cd mysql-test &&
-           if [ -f "$WSREP_PROVIDER" ]; then exec perl mysql-test-run.pl --verbose-restart --force --retry=3 --max-save-core=2 --max-save-datadir=10 --max-test-fail=20 --mem --big-test --parallel=$(expr %(kw:jobs)s \* 2) %(kw:mtr_additional_args)s --suite=wsrep,galera,galera_3nodes,galera_3nodes_sr; fi
-           """,
-                    mtr_additional_args=util.Property(
-                        "mtr_additional_args", default=""
-                    ),
-                    jobs=util.Property("jobs", default="$(getconf _NPROCESSORS_ONLN)"),
-                ),
-            ],
-            timeout=950,
-            haltOnFailure="true",
-            parallel=mtrJobsMultiplier,
-            dbpool=mtrDbPool,
-            autoCreateTables=True,
-            env=mtrEnv,
-            doStepIf=lambda props: hasGalera(props)
-            and props.hasProperty("compile_step_completed"),
-        )
-    )
+    # TODO: Replace steps.MTR with the newer configuration/steps MTRTest and
+    # MTRReporter flow before moving this config to Buildbot 4.x.
+    # TODO: Temporarily commented out while testing newer Buildbot versions up to 4.x.
+    # Replace deprecated steps.MTR/FetchTestData with a new-style shell MTR runner
+    # plus explicit MTR result/log reporting before restoring this build behavior.
+    # factory.addStep(
+        # steps.MTR(
+            # name="Galera tests",
+            # alwaysRun=True,
+            # description="testing galera",
+            # descriptionDone="test galera",
+            # logfiles={"mysqld*": "./buildbot/mysql_logs.html"},
+            # test_type="nm",
+            # command=[
+                # "sh",
+                # "-c",
+                # util.Interpolate(
+                    # r"""
+           # cd mysql-test &&
+           # if [ -f "$WSREP_PROVIDER" ]; then exec perl mysql-test-run.pl --verbose-restart --force --retry=3 --max-save-core=2 --max-save-datadir=10 --max-test-fail=20 --mem --big-test --parallel=$(expr %(kw:jobs)s \* 2) %(kw:mtr_additional_args)s --suite=wsrep,galera,galera_3nodes,galera_3nodes_sr; fi
+           # """,
+                    # mtr_additional_args=util.Property(
+                        # "mtr_additional_args", default=""
+                    # ),
+                    # jobs=util.Property("jobs", default="$(getconf _NPROCESSORS_ONLN)"),
+                # ),
+            # ],
+            # timeout=950,
+            # haltOnFailure="true",
+            # parallel=mtrJobsMultiplier,
+            # dbpool=mtrDbPool,
+            # autoCreateTables=True,
+            # env=mtrEnv,
+            # doStepIf=lambda props: hasGalera(props)
+            # and props.hasProperty("compile_step_completed"),
+        # )
+    # )
     factory.addStep(
         steps.ShellCommand(
             name="move mariadb galera log files",
@@ -488,44 +505,49 @@ def addS3Tests(factory, mtrDbPool):
             doStepIf=runS3,
         )
     )
-    factory.addStep(
-        steps.MTR(
-            name="S3 minio tests",
-            alwaysRun=True,
-            description="testing S3 minio",
-            descriptionDone="test s3 minio",
-            logfiles={"mysqld*": "./buildbot/mysql_logs.html"},
-            test_type="s3",
-            command=[
-                "sh",
-                "-c",
-                util.Interpolate(
-                    r"""
-           cd mysql-test &&
-           exec perl mysql-test-run.pl --verbose-restart --force --retry=3 --max-save-core=2 --max-save-datadir=10 --mem --parallel=$(expr %(kw:jobs)s \* 2) --suite=s3;
-           """,
-                    jobs=util.Property("jobs", default="$(getconf _NPROCESSORS_ONLN)"),
-                ),
-            ],
-            timeout=950,
-            haltOnFailure="true",
-            parallel=mtrJobsMultiplier,
-            dbpool=mtrDbPool,
-            autoCreateTables=True,
-            env={
-                "S3_HOST_NAME": "minio.mariadb.org",
-                "S3_PORT": "443",
-                "S3_ACCESS_KEY": util.Interpolate("%(secret:minio_access_key)s"),
-                "S3_SECRET_KEY": util.Interpolate("%(secret:minio_secret_key)s"),
-                "S3_BUCKET": util.Interpolate(
-                    "%(prop:buildername)s-%(prop:buildnumber)s"
-                ),
-                "S3_USE_HTTP": "OFF",
-                "S3_PROTOCOL_VERSION": "Path",
-            },
-            doStepIf=runS3,
-        )
-    )
+    # TODO: Replace steps.MTR with the newer configuration/steps MTRTest and
+    # MTRReporter flow before moving this config to Buildbot 4.x.
+    # TODO: Temporarily commented out while testing newer Buildbot versions up to 4.x.
+    # Replace deprecated steps.MTR/FetchTestData with a new-style shell MTR runner
+    # plus explicit MTR result/log reporting before restoring this build behavior.
+    # factory.addStep(
+        # steps.MTR(
+            # name="S3 minio tests",
+            # alwaysRun=True,
+            # description="testing S3 minio",
+            # descriptionDone="test s3 minio",
+            # logfiles={"mysqld*": "./buildbot/mysql_logs.html"},
+            # test_type="s3",
+            # command=[
+                # "sh",
+                # "-c",
+                # util.Interpolate(
+                    # r"""
+           # cd mysql-test &&
+           # exec perl mysql-test-run.pl --verbose-restart --force --retry=3 --max-save-core=2 --max-save-datadir=10 --mem --parallel=$(expr %(kw:jobs)s \* 2) --suite=s3;
+           # """,
+                    # jobs=util.Property("jobs", default="$(getconf _NPROCESSORS_ONLN)"),
+                # ),
+            # ],
+            # timeout=950,
+            # haltOnFailure="true",
+            # parallel=mtrJobsMultiplier,
+            # dbpool=mtrDbPool,
+            # autoCreateTables=True,
+            # env={
+                # "S3_HOST_NAME": "minio.mariadb.org",
+                # "S3_PORT": "443",
+                # "S3_ACCESS_KEY": util.Interpolate("%(secret:minio_access_key)s"),
+                # "S3_SECRET_KEY": util.Interpolate("%(secret:minio_secret_key)s"),
+                # "S3_BUCKET": util.Interpolate(
+                    # "%(prop:buildername)s-%(prop:buildnumber)s"
+                # ),
+                # "S3_USE_HTTP": "OFF",
+                # "S3_PROTOCOL_VERSION": "Path",
+            # },
+            # doStepIf=runS3,
+        # )
+    # )
 
     factory.addStep(
         steps.MasterShellCommand(
@@ -612,13 +634,18 @@ def getLastNFailedBuildsFactory(test_type, mtrDbPool):
     f = getBuildFactoryPreTest(*config[test_type]["args"])
 
     for typ in config[test_type]["steps"]:
-        f.addStep(
-            FetchTestData(
-                name=f"Get last N failed {typ} tests",
-                mtrDbPool=mtrDbPool,
-                test_type=typ,
-            )
-        )
+        # TODO: Replace FetchTestData with a new-style BuildStep before moving
+        # this config to Buildbot 4.x.
+        # TODO: Temporarily commented out while testing newer Buildbot versions up to 4.x.
+        # Replace deprecated steps.MTR/FetchTestData with a new-style shell MTR runner
+        # plus explicit MTR result/log reporting before restoring this build behavior.
+        # f.addStep(
+            # FetchTestData(
+                # name=f"Get last N failed {typ} tests",
+                # mtrDbPool=mtrDbPool,
+                # test_type=typ,
+            # )
+        # )
         addTests(f, typ, mtrDbPool, getTests)
 
     return addPostTests(f)

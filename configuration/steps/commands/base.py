@@ -4,9 +4,8 @@ from abc import ABC, abstractmethod
 from dataclasses import dataclass
 from pathlib import Path, PurePath
 
-from buildbot.plugins import steps, util
+from buildbot.plugins import util
 from buildbot.process.properties import Interpolate
-from twisted.internet import defer
 
 # Use if you need to load script files to commands
 COMMAND_SCRIPT_BASE_DIR = Path(__file__).parent / "scripts"
@@ -118,28 +117,34 @@ class URL:
         )
 
 
-class ShellCommandWithURL(steps.ShellCommand):
-    """
-    This class extend's Buildbot's base ShellCommand, to allow rendering
-    an additional url in the interface.
-    The URL can point to relevant artifacts for developers to use.
-    """
-
-    # Add URL and URL text to the renderables list (use with Interpolate)
-    renderables = ["url", "urlText"]
-
-    def __init__(self, url: URL = None, **kwargs):
-        super().__init__(**kwargs)
-        # Need to set the url and urlText so they can be rendered
-        self.url = url._url if isinstance(url, URL) else None
-        self.urlText = url._url_text if isinstance(url, URL) else None
-
-    # FIXME Replace start() with run() when upgrading to Buildbot 4.x
-    @defer.inlineCallbacks
-    def start(self):
-        if self.url is not None:
-            yield self.addURL(self.urlText, self.url)
-
-        # Return to the original method
-        res = yield super().start()
-        return res
+# TODO: Temporarily commented out while testing newer Buildbot versions up to
+# 4.x. This old-style ShellCommand subclass triggers deprecation warnings.
+# Replace it with a new-style implementation:
+# - Buildbot 2.10.x: subclass ShellCommandNewStyle and override run()
+# - newer upstream: subclass ShellCommand and override run()
+#
+# class ShellCommandWithURL(steps.ShellCommand):
+#     """
+#     This class extend's Buildbot's base ShellCommand, to allow rendering
+#     an additional url in the interface.
+#     The URL can point to relevant artifacts for developers to use.
+#     """
+#
+#     # Add URL and URL text to the renderables list (use with Interpolate)
+#     renderables = ["url", "urlText"]
+#
+#     def __init__(self, url: URL = None, **kwargs):
+#         super().__init__(**kwargs)
+#         # Need to set the url and urlText so they can be rendered
+#         self.url = url._url if isinstance(url, URL) else None
+#         self.urlText = url._url_text if isinstance(url, URL) else None
+#
+#     # FIXME Replace start() with run() when upgrading to Buildbot 4.x
+#     @defer.inlineCallbacks
+#     def start(self):
+#         if self.url is not None:
+#             yield self.addURL(self.urlText, self.url)
+#
+#         # Return to the original method
+#         res = yield super().start()
+#         return res
