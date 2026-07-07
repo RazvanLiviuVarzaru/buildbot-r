@@ -218,7 +218,7 @@ def getBuildFactoryPreTest(build_type="RelWithDebInfo", additional_args=""):
                 ),
             ],
             env={"CCACHE_DIR": "/mnt/ccache"},
-            haltOnFailure="true",
+            haltOnFailure=True,
         )
     )
 
