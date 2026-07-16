@@ -70,6 +70,7 @@ RUN zypper update -y \
     snappy-devel \
     subversion \
     systemd-devel \
+    sysuser-tools \
     unixODBC \
     unixODBC-devel \
     wget \
