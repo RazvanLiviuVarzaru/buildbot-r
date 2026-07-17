@@ -89,10 +89,14 @@ BUILDERS_S3_MTR = [
     "amd64-ubuntu-2204-debug",
     "s390x-sles-1506",
 ]
-BUILDERS_SSL_MTR = [
-    "amd64-fedora-44",
-    "amd64-rhel-8",
-]
+
+# TODO: Re-enable once MDEV-39318 shows signs of progress
+# BUILDERS_SSL_MTR = [
+#     "amd64-fedora-44",
+#     "amd64-rhel-8",
+# ]
+
+BUILDERS_SSL_MTR = []
 
 # Defines branches for which we save packages
 SAVED_PACKAGE_BRANCHES = BRANCHES_MAIN + [
