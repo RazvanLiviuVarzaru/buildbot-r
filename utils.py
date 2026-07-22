@@ -5,7 +5,6 @@ from datetime import datetime
 from typing import Any, Generator, Tuple
 
 import docker
-from pyzabbix import ZabbixAPI
 from twisted.internet import defer, threads
 from twisted.python import log
 
@@ -296,38 +295,7 @@ def nextBuild(builder: Builder, requests: list[BuildRequest]) -> BuildRequest:
 @defer.inlineCallbacks
 def canStartBuild(
     builder: Builder, wfb: AbstractWorkerForBuilder, request: BuildRequest
-) -> Generator[defer.Deferred, None, bool]:
-    worker: AbstractWorker = wfb.worker
-    if "s390x" not in worker.name:
-        return True
-
-    worker_prefix = "-".join(worker.name.split("-")[0:2])
-    worker_name = private_config["private"]["worker_name_mapping"][worker_prefix]
-
-    try:
-        load = yield threads.deferToThread(
-            getMetric, worker_name, "BB_accept_new_build"
-        )
-    except (ZabbixNoHostFound, ZabbixToManyItems, ZabbixNoItemFound) as e:
-        log.err(e, f"Zabbix Error: Check configuration for {worker_name}")
-        return True  # This is clearly a Zabbix misconfiguration, let the build start
-    except ZabbixTooOldData as e:
-        log.err(e, f"Zabbix Error: Too old Zabbix data for worker {worker_name}")
-        return False
-    except Exception as e:
-        log.err(
-            e, f"Zabbix Error: Unexpected error when fetching data for {worker_name}"
-        )
-        return True  # In case of other errors, e.g. network issues, let the build start
-
-    if float(load) > 60:
-        worker.quarantine_timeout = 60
-        worker.putInQuarantine()
-        return False
-
-    worker.quarantine_timeout = 120
-    worker.putInQuarantine()
-    worker.resetQuarantine()
+) -> bool:
     return True
 
 
@@ -592,60 +560,6 @@ def prioritizeBuilders(
     }
     builders.sort(key=lambda b: builderPriorities.get(b.name, 2))
     return builders
-
-
-class ZabbixTooOldData(Exception):
-    pass
-
-
-class ZabbixToManyItems(Exception):
-    pass
-
-
-class ZabbixNoItemFound(Exception):
-    pass
-
-
-class ZabbixNoHostFound(Exception):
-    pass
-
-
-# Zabbix helper
-def getMetric(hostname: str, metric: str) -> Any:
-    # set API
-    zapi = ZabbixAPI(private_config["private"]["zabbix_server"])
-    zapi.session.verify = True
-    zapi.timeout = 3
-
-    zapi.login(api_token=private_config["private"]["zabbix_token"])
-
-    host_id = None
-    for h in zapi.host.get(output="extend"):
-        if h["host"] == hostname:
-            host_id = h["hostid"]
-            break
-
-    if host_id is None:
-        raise ZabbixNoHostFound
-
-    hostitems = zapi.item.get(filter={"hostid": host_id, "name": metric})
-
-    if len(hostitems) > 1:
-        raise ZabbixToManyItems
-    if len(hostitems) == 0:
-        raise ZabbixNoItemFound
-
-    hostitem = hostitems[0]
-
-    last_value = hostitem["lastvalue"]
-    last_time = datetime.fromtimestamp(int(hostitem["lastclock"]))
-
-    elapsed_from_last = (datetime.now() - last_time).total_seconds()
-
-    if elapsed_from_last >= 80:
-        raise ZabbixTooOldData
-
-    return last_value
 
 
 def read_template(template_name: str) -> str:
