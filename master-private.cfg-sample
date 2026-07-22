@@ -5,8 +5,6 @@ private["db_password"] = "password"
 private["db_mtr_db"] = "buildbot"
 private["gh_secret"] = "gh_secret"
 private["minio_url"] = "https://access_key:secret_key@minio.mariadb.org"
-private["zabbix_server"] = "https://zabbix.server"
-private["zabbix_token"] = "zabbix_token"
 private["user_pass"]= {
     "admin":"user_pass",
 }
@@ -105,16 +103,6 @@ private["docker_workers"]= {
     "s390x-bbw6-docker":"tcp://IP_address:port", # ibm-s390x-ubuntu2404-01 (.39)
     "s390x-bbw7-docker":"tcp://IP_address:port", # ibm-s390x-ubuntu2404-02 (.40)
     "aws-bbw1-docker":"tcp://IP_address:port",
-}
-
-private["worker_name_mapping"] = {
-    "s390x-bbw1": "ibm-s390x-ubuntu2404-03",
-    "s390x-bbw2": "ibm-s390x-sles15",
-    "s390x-bbw3": "ibm-s390x-rhel8",
-    "s390x-bbw4": "ibm-s390x-ubuntu22.04",
-    "s390x-bbw5": "ibm-s390x-rhel9",
-    "s390x-bbw6": "ibm-s390x-ubuntu2404-01",
-    "s390x-bbw7": "ibm-s390x-ubuntu2404-02",
 }
 
 private["gh_mdbci"]= {
