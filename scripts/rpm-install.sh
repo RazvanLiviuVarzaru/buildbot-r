@@ -11,6 +11,8 @@ set -e
 # shellcheck disable=SC1091
 . ./bash_lib.sh
 
+export SYSTEMD_PAGER=cat
+
 trap 'collect_logs' EXIT
 
 # yum/dnf switch

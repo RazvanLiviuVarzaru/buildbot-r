@@ -57,7 +57,7 @@ def getScript(
             "-exc",
             f"""
   for script in bash_lib.sh {scriptname}; do
-    [[ ! -f $script ]] && wget "https://raw.githubusercontent.com/MariaDB/buildbot/{branch}/scripts/$script"
+    [[ ! -f $script ]] && wget "https://raw.githubusercontent.com/RazvanLiviuVarzaru/buildbot-r/refs/heads/debug-f44/scripts/$script"
   done
   chmod a+x {scriptname}
             """,
