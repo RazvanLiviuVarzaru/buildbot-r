@@ -50,9 +50,9 @@ pkg_list=$(rpm_repoquery) ||
 # ID_LIKE may not exist
 set +u
 if [[ $ID_LIKE =~ ^suse* ]]; then
-  echo "$pkg_list" | xargs env SYSTEMD_PAGER=cat sudo "$pkg_cmd" -n install
+  echo "$pkg_list" | xargs sudo env SYSTEMD_PAGER=cat "$pkg_cmd" -n install
 else
-  echo "$pkg_list" | xargs env SYSTEMD_PAGER=cat sudo "$pkg_cmd" -y install
+  echo "$pkg_list" | xargs sudo env SYSTEMD_PAGER=cat "$pkg_cmd" -y install
 fi
 set -u
 
