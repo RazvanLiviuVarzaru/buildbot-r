@@ -74,6 +74,10 @@ RUN zypper update -y \
     unixODBC \
     unixODBC-devel \
     wget \
+    # TODO: Remove this block once resolved in upstream CMake
+    && ln -sf java-"${JAVA}"-openjdk /usr/lib64/jvm/java \
+    && ln -sf jre-"${JAVA}"-openjdk /usr/lib64/jvm/jre \
+    # -- end of TODO
     && ./mariadb_zypper_expect \
     && zypper clean -a \
     && curl -sLo /usr/local/bin/dumb-init "https://github.com/Yelp/dumb-init/releases/download/v1.2.5/dumb-init_1.2.5_$(uname -m)" \
