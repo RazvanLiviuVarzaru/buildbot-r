@@ -78,6 +78,7 @@ RUN source /etc/os-release \
     flex \
     galera-4 \
     libaio-devel \
+    libatomic \
     libcurl-devel \
     libevent-devel \
     libffi-devel \
