@@ -68,6 +68,7 @@ RUN --mount=type=secret,id=rhel_orgid,target=/run/secrets/rhel_orgid \
     galera-4 \
     krb5-devel \
     libaio-devel \
+    libatomic \
     libcurl-devel \
     libevent-devel \
     libffi-devel \
