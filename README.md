@@ -13,7 +13,7 @@
 [![bbm-deploy](https://github.com/MariaDB/buildbot/actions/workflows/bbm_deploy.yml/badge.svg)](https://github.com/MariaDB/buildbot/actions/workflows/bbm_deploy.yml)
 [![eco container build](https://github.com/MariaDB/buildbot/actions/workflows/eco_containers.yml/badge.svg)](https://github.com/MariaDB/buildbot/actions/workflows/eco_containers.yml)
 
-## pre-commit
+## pre-commit test
 
 [![pre-commit](https://github.com/MariaDB/buildbot/actions/workflows/pre-commit.yml/badge.svg)](https://github.com/MariaDB/buildbot/actions/workflows/pre-commit.yml)
 

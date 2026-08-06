@@ -1,0 +1,19 @@
+name: Check BuildBot
+
+on:
+  pull_request:
+    types:
+      - opened
+      
+jobs:
+  auto-comment:
+    runs-on: ubuntu-22.04
+    steps:
+      - name: PR Comment
+        run: | 
+            gh pr comment $PRNUM --body "Hi ${{ github.event.issue.user.login }} did you check BuildBot? Based on your PR number: ${{ github.event.pull_request.number }} I am able to write you the URL to your LAST run in Grid View"
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          GH_REPO: ${{ github.repository }}
+          PRNUM: ${{ github.event.pull_request.number }}
+          AUTHOR: 
