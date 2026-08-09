@@ -38,6 +38,7 @@ RUN dnf -y install 'dnf-command(config-manager)' \
     java-1.8.0-openjdk-devel \
     java-1.8.0-openjdk \
     jemalloc-devel \
+    libatomic \
     libcurl-devel \
     libevent-devel \
     libffi-devel \
