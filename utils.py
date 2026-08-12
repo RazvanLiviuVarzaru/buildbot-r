@@ -292,7 +292,6 @@ def nextBuild(builder: Builder, requests: list[BuildRequest]) -> BuildRequest:
     return min(requests, key=build_request_sort_key)
 
 
-@defer.inlineCallbacks
 def canStartBuild(
     builder: Builder, wfb: AbstractWorkerForBuilder, request: BuildRequest
 ) -> bool:
