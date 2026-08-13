@@ -44,12 +44,11 @@ jobs:
             runner: ubuntu-24.04
             nogalera: false
 
-          # TODO: Re-enable when mirrors are healthy
-          # - image: docker.io/openeuler/openeuler:24.03-lts
-          #   platforms: linux/amd64, linux/arm64/v8
-          #   tag: openeuler2403
-          #   nogalera: false
-          #   extradockerfile: pip.Dockerfile
+          - image: docker.io/openeuler/openeuler:24.03-lts
+            platforms: linux/amd64, linux/arm64/v8
+            tag: openeuler2403
+            nogalera: false
+            extradockerfile: pip.Dockerfile
 
     uses: ./.github/workflows/bbw_build_container_template.yml
     with:
