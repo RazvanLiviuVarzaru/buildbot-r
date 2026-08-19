@@ -1,0 +1,26 @@
+---
+# Foundry package builders: one builder per (package, arch) combination.
+packages:
+  - ops: centosstream
+    version: "9"
+    type: rpm
+    arch:
+      - amd64
+      - aarch64
+
+  - ops: debian
+    version: "12"
+    type: deb
+    arch:
+      - amd64
+      - aarch64
+
+# Supported MariaDB versions, and which packages (by "{ops}-{version}") get
+# built for each one. Add or remove a version here to change what
+# "foundry-trigger-builders" dispatches.
+mariadb_versions:
+  "11.4":
+    - centosstream-9
+    - debian-12
+  "11.8":
+    - debian-12

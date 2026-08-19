@@ -1,5 +1,6 @@
 from buildbot.plugins import steps
 from buildbot.process.properties import Property
+from buildbot.steps.trigger import Trigger as BuildbotTrigger
 from constants import SAVED_PACKAGE_BRANCHES
 from utils import (
     hasDockerLibrary,
@@ -88,6 +89,34 @@ class ConC(Trigger):
         }
 
         super().__init__(self.name, self.schedulername, self.doStepIf, properties)
+
+
+class _FoundryDispatchStep(BuildbotTrigger):
+    def __init__(self, trigger_specs, **kwargs):
+        self.trigger_specs = trigger_specs
+        super().__init__(**kwargs)
+
+    # Buildbot's dynamic-trigger extension point: lets one step fan out to a
+    # different set of schedulers/properties per (mariadb_version, package)
+    # pair, instead of needing one static Trigger step per version.
+    def getSchedulersAndProperties(self):
+        return self.trigger_specs
+
+
+class FoundryDispatch:
+    def __init__(self, trigger_specs):
+        # trigger_specs: list of (schedulername, properties) pairs, one per
+        # (mariadb_version, package) combination to fan out to.
+        self.trigger_specs = trigger_specs
+
+    def generate(self):
+        return _FoundryDispatchStep(
+            trigger_specs=self.trigger_specs,
+            name="Trigger Foundry Builders",
+            schedulerNames=sorted({name for name, _ in self.trigger_specs}),
+            waitForFinish=False,
+            updateSourceStamp=False,
+        )
 
 
 class Install(Server):
