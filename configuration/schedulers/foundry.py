@@ -9,6 +9,14 @@ FOUNDRY_FORCE_SCHEDULERS.append(
     schedulers.ForceScheduler(
         name="foundry_force_scheduler",
         builderNames=[foundry_builders.DISPATCHER_BUILDER.name],
+        properties=[
+            util.ChoiceStringParameter(
+                name="plugin",
+                label="Plugin to build",
+                choices=foundry_builders.FOUNDRY_PLUGINS,
+                default=foundry_builders.FOUNDRY_PLUGINS[0],
+            ),
+        ],
         codebases=[
             util.CodebaseParameter(
                 codebase="",
@@ -35,9 +43,9 @@ FOUNDRY_TRIGGERABLE_SCHEDULERS = [
         name=foundry_builders.foundry_scheduler_name(version),
         builderNames=[
             builder.name
-            for package in packages
+            for package in version_config["packages"]
             for builder in foundry_builders.FOUNDRY_BUILDERS_BY_PACKAGE[package]
         ],
     )
-    for version, packages in foundry_builders.FOUNDRY_MARIADB_VERSIONS.items()
+    for version, version_config in foundry_builders.FOUNDRY_MARIADB_VERSIONS.items()
 ]

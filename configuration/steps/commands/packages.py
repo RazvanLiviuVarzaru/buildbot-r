@@ -356,6 +356,70 @@ fi
         ]
 
 
+class SetupRPMRepoFromURL(Command):
+    # Unlike SetupRPMRepo, installs an existing, unsigned MariaDB.repo published
+    # by a CI build as-is, instead of constructing a repo definition from scratch.
+    def __init__(self, repo_file_url: str):
+        self.repo_file_url = repo_file_url
+        super().__init__(
+            name="Install MariaDB CI repo",
+            workdir=PurePath("."),
+            user="root",
+        )
+
+    def as_cmd_arg(self) -> list[str]:
+        return [
+            "bash",
+            "-exc",
+            util.Interpolate(
+                f"""
+set -euo pipefail
+
+if command -v zypper >/dev/null 2>&1; then
+    repo_dir=/etc/zypp/repos.d
+else
+    repo_dir=/etc/yum.repos.d
+fi
+mkdir -p "$repo_dir"
+curl -fsSL {self.repo_file_url} -o "$repo_dir/MariaDB.repo"
+
+if command -v dnf >/dev/null 2>&1; then
+    dnf makecache
+elif command -v zypper >/dev/null 2>&1; then
+    zypper --gpg-auto-import-keys refresh
+else
+    yum makecache
+fi
+"""
+            ),
+        ]
+
+
+class SetupDEBRepoFromURL(Command):
+    # Unlike SetupDEBRepo, installs an existing, unsigned mariadb.sources file
+    # published by a CI build as-is, instead of constructing one from scratch.
+    def __init__(self, sources_file_url: str):
+        self.sources_file_url = sources_file_url
+        super().__init__(
+            name="Install MariaDB CI repo",
+            workdir=PurePath("."),
+            user="root",
+        )
+
+    def as_cmd_arg(self) -> list[str]:
+        return [
+            "bash",
+            "-exc",
+            util.Interpolate(
+                f"""
+set -euo pipefail
+curl -fsSL {self.sources_file_url} -o /etc/apt/sources.list.d/mariadb.sources
+apt-get update
+"""
+            ),
+        ]
+
+
 class InstallDEBPackages(Command):
     def __init__(
         self, packages: Union[str, Iterable[str]], workdir: PurePath = PurePath(".")
