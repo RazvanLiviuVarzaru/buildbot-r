@@ -121,9 +121,7 @@ def deb(config: DockerConfig, repo_file_url: str):
     sequence.add_step(
         InContainer(
             ShellStep(
-                command=RunPluginMTRSuite(
-                    ["/usr/share/mariadb-test", "/usr/share/mysql/mysql-test"]
-                )
+                command=RunPluginMTRSuite("DEB")
             ),
             docker_environment=config,
         )
@@ -175,9 +173,7 @@ def rpm(config: DockerConfig, repo_file_url: str):
     sequence.add_step(
         InContainer(
             ShellStep(
-                command=RunPluginMTRSuite(
-                    ["/usr/share/mariadb-test", "/usr/share/mysql-test"]
-                )
+                command=RunPluginMTRSuite("RPM")
             ),
             docker_environment=config,
         )
