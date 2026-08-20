@@ -43,16 +43,18 @@ class RunPluginMTRSuite(Command):
     # the plugin's fetched source (<plugin>.build/) that has a suite.opt --
     # copies them into the installed suite tree, and runs them. A plugin
     # with no MTR suite is skipped rather than failing the build.
-    def __init__(self, candidate_mtr_dirs: list[str], workdir: PurePath = PurePath(".")):
-        # candidate_mtr_dirs: possible install locations for
-        # mysql-test-run.pl, since the exact path varies across MariaDB
-        # package versions/layouts -- the first one that actually exists
-        # (post MariaDB-test/mariadb-test install) is used.
-        self.candidate_mtr_dirs = candidate_mtr_dirs
+    def __init__(self, package_type: str, workdir: PurePath = PurePath(".")):
+        self.package_type = package_type
         super().__init__(name="Run plugin MTR suite", workdir=workdir, user="root")
 
     def as_cmd_arg(self) -> list[str]:
-        candidates = " ".join(self.candidate_mtr_dirs)
+        # Ask the package manager where MariaDB-test/mariadb-test actually
+        # put mysql-test-run.pl, rather than guessing a path -- it's moved
+        # across MariaDB package versions/layouts before.
+        if self.package_type == "RPM":
+            list_files_cmd = "rpm -ql MariaDB-test"
+        else:
+            list_files_cmd = "dpkg -L mariadb-test"
         return [
             "bash",
             "-exc",
@@ -60,17 +62,12 @@ class RunPluginMTRSuite(Command):
                 f"""
 set -euo pipefail
 
-mtr_base_dir=""
-for candidate in {candidates}; do
-    if [ -f "$candidate/mysql-test-run.pl" ]; then
-        mtr_base_dir="$candidate"
-        break
-    fi
-done
-if [ -z "$mtr_base_dir" ]; then
-    echo "Could not find mysql-test-run.pl in any of: {candidates}" >&2
+mtr_script=$({list_files_cmd} | grep -m1 '/mysql-test-run\\.pl$')
+if [ -z "$mtr_script" ]; then
+    echo "Could not locate mysql-test-run.pl from the installed test package" >&2
     exit 1
 fi
+mtr_base_dir=$(dirname "$mtr_script")
 
 plugin_build="%(prop:plugin)s.build"
 suites=""
@@ -89,7 +86,7 @@ if [ -z "$suites" ]; then
     exit 0
 fi
 
-perl "$mtr_base_dir/mysql-test-run.pl" --suite="$suites" --user=root
+cd "$mtr_base_dir" && perl mysql-test-run.pl --suite="$suites" --user=root
 """
             ),
         ]
