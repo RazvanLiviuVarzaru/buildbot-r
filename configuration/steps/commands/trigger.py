@@ -98,9 +98,15 @@ class _FoundryDispatchStep(BuildbotTrigger):
 
     # Buildbot's dynamic-trigger extension point: lets one step fan out to a
     # different set of schedulers/properties per (mariadb_version, package)
-    # pair, instead of needing one static Trigger step per version.
+    # pair, instead of needing one static Trigger step per version. Reads
+    # "plugin" from this build's own properties (set by foundry_force_scheduler)
+    # since self.trigger_specs isn't a renderable -- it's plain config-time data.
     def getSchedulersAndProperties(self):
-        return self.trigger_specs
+        plugin = self.getProperty("plugin")
+        return [
+            (sched_name, {**props, "plugin": plugin})
+            for sched_name, props in self.trigger_specs
+        ]
 
 
 class FoundryDispatch:
