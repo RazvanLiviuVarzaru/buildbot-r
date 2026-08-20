@@ -30,19 +30,44 @@ class InstallBuiltPackages(Command):
         )
 
     def as_cmd_arg(self) -> list[str]:
+        # apt-get/dnf can exit 0 having installed nothing (e.g. a malformed
+        # package filename it silently ignores) -- verify each built package
+        # actually landed, instead of only trusting the install command's
+        # own exit code.
         if self.package_type == "RPM":
-            install_cmd = "dnf install -y ./*.rpm"
+            script = """
+dnf install -y ./*.rpm
+for f in ./*.rpm; do
+    pkg=$(rpm -qp --qf '%{NAME}' "$f")
+    rpm -q "$pkg" >/dev/null 2>&1 || { echo "Package $pkg from $f was not installed" >&2; exit 1; }
+done
+"""
         else:
-            install_cmd = "apt-get install -y ./*.deb"
-        return ["bash", "-exc", f"set -euo pipefail\n{install_cmd}"]
+            # apt-get/apt's dependency resolver can silently refuse to add a
+            # local .deb to its changeset when the filename contains a ":"
+            # (as ours does, from the Debian epoch) -- dpkg -i installs the
+            # file directly with no such ambiguity, then apt -f pulls in
+            # anything it couldn't resolve on its own.
+            script = """
+dpkg -i ./*.deb || true
+apt-get install -f -y
+for f in ./*.deb; do
+    pkg=$(dpkg-deb -f "$f" Package)
+    dpkg -s "$pkg" >/dev/null 2>&1 || { echo "Package $pkg from $f was not installed" >&2; exit 1; }
+done
+"""
+        return ["bash", "-exc", f"set -euo pipefail\n{script}"]
 
 
 class RunPluginMTRSuite(Command):
-    # Discovers the plugin's own MTR suite(s) the way mtr-suites.sh does --
-    # any directory under a mysql-test/ (or mysql-test/suite/) directory in
-    # the plugin's fetched source (<plugin>.build/) that has a suite.opt --
-    # copies them into the installed suite tree, and runs them. A plugin
-    # with no MTR suite is skipped rather than failing the build.
+    # MARIADB_ADD_PLUGIN's INSTALL_MYSQL_TEST (cmake/plugin.cmake) always
+    # installs a plugin's mysql-test/ contents -- suite/ included -- under
+    # <mtr_base_dir>/plugin/<plugin>/, so the suite ends up at
+    # plugin/<plugin>/suite/<name>, not plugin/<plugin>/<name>. mtr_cases.pm's
+    # short-name lookup for `--suite=NAME` doesn't account for that extra
+    # suite/ level, so we pass MTR the full relative path instead, which it
+    # accepts directly. A plugin with no suite/ dir at all is skipped rather
+    # than failing the build.
     def __init__(self, package_type: str, workdir: PurePath = PurePath(".")):
         self.package_type = package_type
         super().__init__(name="Run plugin MTR suite", workdir=workdir, user="root")
@@ -62,31 +87,27 @@ class RunPluginMTRSuite(Command):
                 f"""
 set -euo pipefail
 
-mtr_script=$({list_files_cmd} | grep -m1 '/mysql-test-run\\.pl$')
+mtr_script=$({list_files_cmd} | grep -m1 '/mysql-test-run\\.pl$' || true)
 if [ -z "$mtr_script" ]; then
     echo "Could not locate mysql-test-run.pl from the installed test package" >&2
     exit 1
 fi
 mtr_base_dir=$(dirname "$mtr_script")
 
-plugin_build="%(prop:plugin)s.build"
-suites=""
-for mt in $(find "$plugin_build" -type d -name mysql-test 2>/dev/null); do
-    for d in "$mt"/*/ "$mt"/suite/*/; do
-        [ -f "${{d}}suite.opt" ] || continue
-        name=$(basename "$d")
-        cp -r "$d" "$mtr_base_dir/suite/$name"
-        suites="$suites,$name"
-    done
-done
-suites=$(echo "$suites" | sed 's/^,//')
-
-if [ -z "$suites" ]; then
+plugin_suite_dir="$mtr_base_dir/plugin/%(prop:plugin)s/suite"
+if [ ! -d "$plugin_suite_dir" ]; then
     echo "No MTR suite found for plugin %(prop:plugin)s -- skipping"
     exit 0
 fi
 
-cd "$mtr_base_dir" && perl mysql-test-run.pl --suite="$suites" --user=root
+suites=""
+for d in "$plugin_suite_dir"/*/; do
+    name=$(basename "$d")
+    suites="$suites,plugin/%(prop:plugin)s/suite/$name"
+done
+suites=$(echo "$suites" | sed 's/^,//')
+
+cd "$mtr_base_dir" && perl mysql-test-run.pl --force --max-test-fail=20 --suite="$suites" --vardir=/home/buildbot
 """
             ),
         ]
