@@ -1,17 +1,25 @@
+import os
+
 from configuration.builders.infra.runtime import (
     BuildSequence,
     DockerConfig,
     InContainer,
 )
+from configuration.steps.commands.base import URL, BashCommand
 from configuration.steps.commands.download import GitInitFromCommit
-from configuration.steps.commands.foundry import BuildPlugin
+from configuration.steps.commands.foundry import (
+    BuildPlugin,
+    InstallBuiltPackages,
+    RunPluginMTRSuite,
+)
 from configuration.steps.commands.packages import (
     InstallDEBPackages,
     InstallRPMPackages,
+    SavePackages,
     SetupDEBRepoFromURL,
     SetupRPMRepoFromURL,
 )
-from configuration.steps.remote import ShellStep
+from configuration.steps.remote import PropFromShellStep, ShellStep
 
 _MARIADB_VERSION_ENV = [("MARIADB_VERSION", "%(prop:mariadb_version)s")]
 
@@ -30,9 +38,49 @@ def _clone_foundry_step(config: DockerConfig):
     )
 
 
+def _capture_foundry_revision_step(config: DockerConfig):
+    # foundry_force_scheduler never gives us a concrete revision (see
+    # _clone_foundry_step), so read back the commit that actually got
+    # checked out -- needed to tell apart saved packages built from
+    # different foundry/plugin source revisions.
+    return InContainer(
+        PropFromShellStep(
+            command=BashCommand(cmd="git rev-parse --short HEAD"),
+            property="foundry_revision",
+        ),
+        docker_environment=config,
+    )
+
+
+def _save_packages_step(config: DockerConfig, package_glob: str):
+    # The same builder gets triggered once per mariadb_version (and, on a
+    # different run, for a different plugin, or a different foundry commit)
+    # -- all three need to be in the destination path, or a later run
+    # silently overwrites an earlier one's saved packages.
+    # mariadb_version-tarbuildnum is kept as a single segment so it reads
+    # unambiguously as "the tarbuildnum for this mariadb_version", not some
+    # unrelated build number.
+    destination = (
+        "/packages/foundry/%(prop:mariadb_version)s-%(prop:tarbuildnum)s/%(prop:plugin)s"
+        "/%(prop:foundry_revision)s/%(prop:buildername)s"
+    )
+    url = (
+        f"{os.environ['ARTIFACTS_URL']}/foundry/%(prop:mariadb_version)s-%(prop:tarbuildnum)s"
+        "/%(prop:plugin)s/%(prop:foundry_revision)s/%(prop:buildername)s"
+    )
+    return InContainer(
+        ShellStep(
+            command=SavePackages(packages=[package_glob], destination=destination),
+            url=URL(url=url, url_text="Packages"),
+        ),
+        docker_environment=config,
+    )
+
+
 def deb(config: DockerConfig, repo_file_url: str):
     sequence = BuildSequence()
     sequence.add_step(_clone_foundry_step(config))
+    sequence.add_step(_capture_foundry_revision_step(config))
     sequence.add_step(
         InContainer(
             ShellStep(command=SetupDEBRepoFromURL(repo_file_url)),
@@ -53,12 +101,36 @@ def deb(config: DockerConfig, repo_file_url: str):
             docker_environment=config,
         )
     )
+    sequence.add_step(
+        InContainer(
+            ShellStep(command=InstallBuiltPackages("DEB")),
+            docker_environment=config,
+            container_commit=True,
+        )
+    )
+    sequence.add_step(_save_packages_step(config, "*.deb"))
+    sequence.add_step(
+        InContainer(
+            ShellStep(
+                command=InstallDEBPackages(packages=["mariadb-server", "mariadb-test"])
+            ),
+            docker_environment=config,
+            container_commit=True,
+        )
+    )
+    sequence.add_step(
+        InContainer(
+            ShellStep(command=RunPluginMTRSuite("/usr/share/mysql/mysql-test")),
+            docker_environment=config,
+        )
+    )
     return sequence
 
 
 def rpm(config: DockerConfig, repo_file_url: str):
     sequence = BuildSequence()
     sequence.add_step(_clone_foundry_step(config))
+    sequence.add_step(_capture_foundry_revision_step(config))
     sequence.add_step(
         InContainer(
             ShellStep(command=SetupRPMRepoFromURL(repo_file_url)),
@@ -76,6 +148,29 @@ def rpm(config: DockerConfig, repo_file_url: str):
     sequence.add_step(
         InContainer(
             ShellStep(command=BuildPlugin("RPM"), env_vars=_MARIADB_VERSION_ENV),
+            docker_environment=config,
+        )
+    )
+    sequence.add_step(
+        InContainer(
+            ShellStep(command=InstallBuiltPackages("RPM")),
+            docker_environment=config,
+            container_commit=True,
+        )
+    )
+    sequence.add_step(_save_packages_step(config, "*.rpm"))
+    sequence.add_step(
+        InContainer(
+            ShellStep(
+                command=InstallRPMPackages(packages=["MariaDB-server", "MariaDB-test"])
+            ),
+            docker_environment=config,
+            container_commit=True,
+        )
+    )
+    sequence.add_step(
+        InContainer(
+            ShellStep(command=RunPluginMTRSuite("/usr/share/mysql-test")),
             docker_environment=config,
         )
     )
