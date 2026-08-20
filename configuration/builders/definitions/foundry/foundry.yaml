@@ -2,6 +2,9 @@
 # Plugins registered in https://github.com/vuvova/foundry (one top-level
 # directory each). Selectable via foundry_force_scheduler's "plugin" param
 # and passed straight to "cmake -P run.cmake <plugin>" in the child builders.
+# Note: the plugin's installed MTR "plugin/<name>/suite/" directory isn't
+# necessarily named the same (e.g. tidesql's CMake target is "tidesdb") --
+# RunPluginMTRSuite discovers that at runtime rather than assuming it matches.
 plugins:
   - disabled-functions
   - levenshtein
