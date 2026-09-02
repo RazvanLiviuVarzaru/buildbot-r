@@ -5,16 +5,36 @@ from configuration.steps.commands.base import Command
 
 
 class BuildPlugin(Command):
-    # package_type: "RPM" or "DEB" -- the -D flag run.cmake expects.
-    def __init__(self, package_type: str, workdir: PurePath = PurePath(".")):
+    # Pass package_type ("RPM" or "DEB") for the -D flag run.cmake expects,
+    # or cmake_prefix_path (exclusive of package_type) to instead link
+    # against an unpacked MariaDB server bintar via -DCMAKE_PREFIX_PATH --
+    # omitting -DRPM/-DDEB entirely is what makes run.cmake produce a plain
+    # bintar tarball for the plugin instead of a package.
+    def __init__(
+        self,
+        package_type: str = None,
+        cmake_prefix_path: str = None,
+        workdir: PurePath = PurePath("."),
+    ):
+        assert (package_type is None) != (cmake_prefix_path is None), (
+            "BuildPlugin takes exactly one of package_type or cmake_prefix_path"
+        )
         self.package_type = package_type
-        super().__init__(name=f"Build plugin ({package_type})", workdir=workdir)
+        self.cmake_prefix_path = cmake_prefix_path
+        super().__init__(
+            name=f"Build plugin ({package_type or 'bintar'})", workdir=workdir
+        )
 
     def as_cmd_arg(self) -> list[str]:
+        cmake_define = (
+            f"-DCMAKE_PREFIX_PATH={self.cmake_prefix_path} "
+            if self.cmake_prefix_path
+            else f"-D{self.package_type}=1 "
+        )
         return [
             "bash",
             "-exc",
-            util.Interpolate(f"cmake -D{self.package_type}=1 -P run.cmake %(prop:plugin)s"),
+            util.Interpolate(f"cmake {cmake_define}-P run.cmake %(prop:plugin)s"),
         ]
 
 
@@ -51,6 +71,87 @@ for f in ./*.deb; do
 done
 """
         return ["bash", "-exc", f"set -euo pipefail\n{script}"]
+
+
+class DownloadServerBintar(Command):
+    # Foundry bintar plugin builds link against a matching MariaDB server
+    # bintar instead of installed -devel packages. ci_builder is the
+    # production buildbot builder on ci.mariadb.org that publishes it for
+    # this OS (e.g. "amd64-centos-7-bintar") -- the exact tarball filename
+    # varies by version/build, so it's discovered from the directory
+    # listing rather than assumed. Emits the extracted directory's absolute
+    # path on stdout, for capture into a property (e.g. via
+    # PropFromShellStep) and use as BuildPlugin's cmake_prefix_path.
+    def __init__(self, ci_builder: str, workdir: PurePath = PurePath(".")):
+        self.ci_builder = ci_builder
+        super().__init__(name="Download server bintar", workdir=workdir)
+
+    def as_cmd_arg(self) -> list[str]:
+        return [
+            "bash",
+            "-exc",
+            util.Interpolate(
+                f"""
+set -euo pipefail
+
+base_url="https://ci.mariadb.org/%(prop:tarbuildnum)s/{self.ci_builder}"
+filename=$(curl -fsSL "$base_url/" | grep -oE 'href="mariadb-[^"]*-linux[^"]*\\.tar\\.gz"' | head -1 | sed -E 's/^href="(.*)"$/\\1/')
+if [ -z "$filename" ]; then
+    echo "Could not find a server bintar under $base_url" >&2
+    exit 1
+fi
+
+mkdir -p /home/buildbot/bintar
+curl -fsSL "$base_url/$filename" -o "/home/buildbot/bintar/$filename"
+tar -xzf "/home/buildbot/bintar/$filename" -C /home/buildbot/bintar
+
+dirname=$(tar -tzf "/home/buildbot/bintar/$filename" | head -1 | cut -d/ -f1)
+echo "/home/buildbot/bintar/$dirname"
+"""
+            ),
+        ]
+
+
+class ExtractPluginBintarIntoServerBintar(Command):
+    # The plugin's own MTR suite is only visible to MTR once its bintar is
+    # unpacked directly into the server bintar tree it was built against --
+    # --strip-components=1 drops the plugin tarball's own top-level
+    # directory so its plugin/<name>/ contents land alongside the server
+    # bintar's own plugin/, mysql-test/, etc.
+    #
+    # The server bintar ships its own bundled plugin suites (rocksdb,
+    # columnstore, ...) under that same plugin/*/*/suite.pm layout, so once
+    # extraction is done there's no way to tell "ours" apart from those by
+    # just re-scanning the merged tree. Emit the suite name(s) contributed
+    # by *this* plugin's tarball -- read off its own listing, before it gets
+    # merged in -- on stdout, for capture into a property (e.g. via
+    # PropFromShellStep) and use as RunPluginMTRSuiteFromBintar's suites arg.
+    def __init__(self, server_bintar_dir: str, workdir: PurePath = PurePath(".")):
+        self.server_bintar_dir = server_bintar_dir
+        super().__init__(
+            name="Extract plugin bintar into server bintar", workdir=workdir
+        )
+
+    def as_cmd_arg(self) -> list[str]:
+        return [
+            "bash",
+            "-exc",
+            util.Interpolate(
+                f"""
+set -euo pipefail
+
+suites=""
+for f in ./mariadb-plugin-*.tar.gz; do
+    tar -xf "$f" -C "{self.server_bintar_dir}" --strip-components=1
+    for name in $(tar -tzf "$f" | grep -oE '^[^/]+/plugin/[^/]+/[^/]+/suite\\.pm$' | awk -F/ '{{print $4}}' || true); do
+        suites="$suites,$name"
+    done
+done
+suites=$(echo "$suites" | sed 's/^,//')
+echo "$suites"
+"""
+            ),
+        ]
 
 
 class RunPluginMTRSuite(Command):
@@ -108,6 +209,44 @@ if [ -z "$suites" ]; then
 fi
 
 cd "$mtr_base_dir" && perl mariadb-test-run.pl --force --max-test-fail=20 --suite="$suites" --vardir=/home/buildbot
+"""
+            ),
+        ]
+
+
+class RunPluginMTRSuiteFromBintar(Command):
+    # Runs the suite(s) contributed by the plugin we just built and unpacked
+    # into a server bintar tree. Unlike RunPluginMTRSuite, suites isn't
+    # (re)discovered here -- the server bintar bundles its own plugin
+    # suites (rocksdb, columnstore, ...) under the same plugin/*/*/suite.pm
+    # layout, so re-scanning the merged tree can't tell those apart from
+    # ours. Instead suites comes straight from
+    # ExtractPluginBintarIntoServerBintar, which read it off the plugin's
+    # own tarball listing before merging. mariadb-test-run.pl (wrapped by
+    # ./mtr) lives at a known path inside the tree, so there's no package
+    # manager to query either.
+    def __init__(
+        self, server_bintar_dir: str, suites: str, workdir: PurePath = PurePath(".")
+    ):
+        self.server_bintar_dir = server_bintar_dir
+        self.suites = suites
+        super().__init__(name="Run plugin MTR suite", workdir=workdir)
+
+    def as_cmd_arg(self) -> list[str]:
+        return [
+            "bash",
+            "-exc",
+            util.Interpolate(
+                f"""
+set -euo pipefail
+
+suites="{self.suites}"
+if [ -z "$suites" ]; then
+    echo "No MTR suite found for plugin %(prop:plugin)s -- skipping"
+    exit 0
+fi
+
+cd "{self.server_bintar_dir}/mariadb-test" && ./mtr --force --max-test-fail=20 --suite="$suites"
 """
             ),
         ]

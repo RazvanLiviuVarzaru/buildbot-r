@@ -9,8 +9,11 @@ from configuration.steps.commands.base import URL, BashCommand
 from configuration.steps.commands.download import GitInitFromCommit
 from configuration.steps.commands.foundry import (
     BuildPlugin,
+    DownloadServerBintar,
+    ExtractPluginBintarIntoServerBintar,
     InstallBuiltPackages,
     RunPluginMTRSuite,
+    RunPluginMTRSuiteFromBintar,
 )
 from configuration.steps.commands.packages import (
     InstallDEBPackages,
@@ -174,6 +177,61 @@ def rpm(config: DockerConfig, repo_file_url: str):
         InContainer(
             ShellStep(
                 command=RunPluginMTRSuite("RPM")
+            ),
+            docker_environment=config,
+        )
+    )
+    return sequence
+
+
+_SERVER_BINTAR_PROP = "%(prop:server_bintar_dir)s"
+
+
+def bintar(config: DockerConfig, ci_bintar_builder: str):
+    # Bintar images (centos7, almalinux8) have no autobake builder of their
+    # own to install -devel packages from -- instead, the plugin is built
+    # against a matching MariaDB server bintar (published by ci_bintar_builder
+    # on production CI, e.g. "amd64-centos-7-bintar") via -DCMAKE_PREFIX_PATH.
+    # Testing then means unpacking the plugin's own bintar into that same
+    # server bintar tree and running its bundled ./mtr, rather than
+    # installing MariaDB-server/MariaDB-test as system packages.
+    sequence = BuildSequence()
+    sequence.add_step(_clone_foundry_step(config))
+    sequence.add_step(_capture_foundry_revision_step(config))
+    sequence.add_step(
+        InContainer(
+            PropFromShellStep(
+                command=DownloadServerBintar(ci_bintar_builder),
+                property="server_bintar_dir",
+            ),
+            docker_environment=config,
+        )
+    )
+    sequence.add_step(
+        InContainer(
+            ShellStep(
+                command=BuildPlugin(cmake_prefix_path=_SERVER_BINTAR_PROP),
+                env_vars=_MARIADB_VERSION_ENV,
+            ),
+            docker_environment=config,
+        )
+    )
+    sequence.add_step(_save_packages_step(config, "mariadb-plugin-*.tar.gz"))
+    sequence.add_step(
+        InContainer(
+            PropFromShellStep(
+                command=ExtractPluginBintarIntoServerBintar(_SERVER_BINTAR_PROP),
+                property="plugin_suites",
+            ),
+            docker_environment=config,
+        )
+    )
+    sequence.add_step(
+        InContainer(
+            ShellStep(
+                command=RunPluginMTRSuiteFromBintar(
+                    _SERVER_BINTAR_PROP, "%(prop:plugin_suites)s"
+                )
             ),
             docker_environment=config,
         )

@@ -39,21 +39,32 @@ for package_config in _FOUNDRY_CONFIG["packages"]:
     version = package_config["version"]
     package = f"{ops}-{version}"
     package_type = package_config["type"]
-    sequence_fn = _SEQUENCE_BY_PACKAGE_TYPE[package_type]
-    repo_file = _REPO_FILE_BY_PACKAGE_TYPE[package_type]
     for arch in package_config["arch"]:
-        # Server autobake builder that publishes MariaDB-devel/libmariadb-dev
-        # for this platform, e.g. "amd64-debian-12-deb-autobake" -- see
-        # BUILDERS_AUTOBAKE in constants.py.
-        autobake_builder = f"{arch}-{package_config['os_info_key']}-{package_type}-autobake"
-        repo_file_url = (
-            f"{_DEVEL_REPO_ARTIFACTS_URL}/%(prop:tarbuildnum)s/{autobake_builder}/{repo_file}"
-        )
+        if package_type == "bintar":
+            # Bintar builds link against a MariaDB server bintar (see
+            # autobake.bintar) instead of installing -devel packages from an
+            # autobake builder's repo, so there's no repo_file_url to build.
+            sequence = autobake.bintar(
+                docker_config(image=f"{ops}{version}"),
+                package_config["ci_bintar_builder"],
+            )
+        else:
+            sequence_fn = _SEQUENCE_BY_PACKAGE_TYPE[package_type]
+            repo_file = _REPO_FILE_BY_PACKAGE_TYPE[package_type]
+            # Server autobake builder that publishes
+            # MariaDB-devel/libmariadb-dev for this platform, e.g.
+            # "amd64-debian-12-deb-autobake" -- see BUILDERS_AUTOBAKE in
+            # constants.py.
+            autobake_builder = (
+                f"{arch}-{package_config['os_info_key']}-{package_type}-autobake"
+            )
+            repo_file_url = (
+                f"{_DEVEL_REPO_ARTIFACTS_URL}/%(prop:tarbuildnum)s/{autobake_builder}/{repo_file}"
+            )
+            sequence = sequence_fn(docker_config(image=f"{ops}{version}"), repo_file_url)
         builder = GenericBuilder(
             name=f"foundry-{arch}-{ops}-{version}",
-            sequences=[
-                sequence_fn(docker_config(image=f"{ops}{version}"), repo_file_url)
-            ],
+            sequences=[sequence],
         )
         FOUNDRY_BUILDERS_BY_ARCH.setdefault(arch, []).append(builder)
         FOUNDRY_BUILDERS_BY_PACKAGE.setdefault(package, []).append(builder)
