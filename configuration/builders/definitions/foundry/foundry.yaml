@@ -90,6 +90,21 @@ packages:
     type: rpm
     os_info_key: opensuse-1600
     arch: [amd64]
+  # Bintar builds: the plugin is built against a MariaDB server bintar
+  # (fetched from ci_bintar_builder on ci.mariadb.org, same tarbuildnum)
+  # instead of installed -devel packages -- see autobake.bintar. Only one
+  # image builds bintars per MariaDB version range: centos7 up to 11.4,
+  # almalinux8 from 11.8 on (see mariadb_versions below).
+  - ops: centos
+    version: "7-bintar"
+    type: bintar
+    ci_bintar_builder: amd64-centos-7-bintar
+    arch: [amd64]
+  - ops: almalinux
+    version: "8-bintar"
+    type: bintar
+    ci_bintar_builder: amd64-almalinux-8-bintar
+    arch: [amd64]
 
 # Supported MariaDB versions: which packages get built for each, and the
 # tarbuildnum of the server CI build to install MariaDB-devel/libmariadb-dev
@@ -111,6 +126,7 @@ mariadb_versions:
       - debian-12
       - ubuntu-22.04
       - ubuntu-24.04
+      - centos-7-bintar
   # "11.8":
   #   tarbuildnum: 0
   #   packages:
@@ -128,3 +144,4 @@ mariadb_versions:
   #     - sles-1507
   #     - sles-1600
   #     - opensuse-1600
+  #     - almalinux-8-bintar
