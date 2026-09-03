@@ -9,6 +9,7 @@ from configuration.steps.commands.base import URL, BashCommand
 from configuration.steps.commands.download import GitInitFromCommit
 from configuration.steps.commands.foundry import (
     BuildPlugin,
+    DiscoverPluginMTRSuites,
     DownloadServerBintar,
     ExtractPluginBintarIntoServerBintar,
     InstallBuiltPackages,
@@ -106,6 +107,15 @@ def deb(config: DockerConfig, repo_file_url: str):
     )
     sequence.add_step(
         InContainer(
+            PropFromShellStep(
+                command=DiscoverPluginMTRSuites("DEB"),
+                property="plugin_suites",
+            ),
+            docker_environment=config,
+        )
+    )
+    sequence.add_step(
+        InContainer(
             ShellStep(command=InstallBuiltPackages("DEB")),
             docker_environment=config,
             container_commit=True,
@@ -124,7 +134,7 @@ def deb(config: DockerConfig, repo_file_url: str):
     sequence.add_step(
         InContainer(
             ShellStep(
-                command=RunPluginMTRSuite("DEB")
+                command=RunPluginMTRSuite("DEB", "%(prop:plugin_suites)s")
             ),
             docker_environment=config,
         )
@@ -158,6 +168,15 @@ def rpm(config: DockerConfig, repo_file_url: str):
     )
     sequence.add_step(
         InContainer(
+            PropFromShellStep(
+                command=DiscoverPluginMTRSuites("RPM"),
+                property="plugin_suites",
+            ),
+            docker_environment=config,
+        )
+    )
+    sequence.add_step(
+        InContainer(
             ShellStep(command=InstallBuiltPackages("RPM")),
             docker_environment=config,
             container_commit=True,
@@ -176,7 +195,7 @@ def rpm(config: DockerConfig, repo_file_url: str):
     sequence.add_step(
         InContainer(
             ShellStep(
-                command=RunPluginMTRSuite("RPM")
+                command=RunPluginMTRSuite("RPM", "%(prop:plugin_suites)s")
             ),
             docker_environment=config,
         )

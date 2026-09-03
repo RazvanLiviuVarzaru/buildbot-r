@@ -154,21 +154,64 @@ echo "$suites"
         ]
 
 
-class RunPluginMTRSuite(Command):
+class DiscoverPluginMTRSuites(Command):
     # MARIADB_ADD_PLUGIN's INSTALL_MYSQL_TEST (cmake/plugin.cmake) installs
     # a plugin's mysql-test suite(s) under <mtr_base_dir>/plugin/<X>/<name>/,
     # e.g. plugin/rocksdb/rocksdb/suite.pm or
-    # plugin/columnstore/columnstore/suite.pm. <X> is the plugin's own CMake
-    # project/target name, which isn't always the same as the Foundry
-    # "plugin" property (e.g. tidesql's CMake target is actually "tidesdb"),
-    # so rather than guess it, discover whatever actually landed under
-    # plugin/*/*/suite.pm -- exactly one plugin gets installed per build.
-    # mtr_cases.pm resolves a bare suite name (e.g. "rocksdb") by searching
-    # under plugin/*/ itself, so passing just the suite's short name is
-    # enough -- no need to spell out the plugin/<X>/ prefix. A plugin with no
-    # suite.pm anywhere under it is skipped rather than failing the build.
+    # plugin/columnstore/columnstore/suite.pm -- the same layout MariaDB-test
+    # itself uses for the suites it bundles for its own plugins (rocksdb,
+    # columnstore, auth_gssapi, ...). Once MariaDB-test is installed
+    # alongside our plugin there's no way to tell "ours" apart by re-scanning
+    # the merged plugin/ directory -- doing that picked up every bundled
+    # suite as well as (or instead of) the plugin actually under test.
+    # Read the suite name(s) straight off the plugin's own just-built
+    # package listing instead, before MariaDB-test ever gets installed. <X>
+    # is the plugin's own CMake project/target name, which isn't always the
+    # same as the Foundry "plugin" property (e.g. tidesql's CMake target is
+    # actually "tidesdb"), so this discovers whatever actually landed under
+    # plugin/*/*/suite.pm rather than guessing it. Emits comma-separated
+    # suite name(s) on stdout for capture into a property (e.g. via
+    # PropFromShellStep) and use as RunPluginMTRSuite's suites arg.
     def __init__(self, package_type: str, workdir: PurePath = PurePath(".")):
         self.package_type = package_type
+        super().__init__(name="Discover plugin MTR suite", workdir=workdir)
+
+    def as_cmd_arg(self) -> list[str]:
+        if self.package_type == "RPM":
+            list_files_cmd = "rpm -qlp ./*.rpm"
+        else:
+            list_files_cmd = "dpkg-deb -c ./*.deb | awk '{print $NF}'"
+        return [
+            "bash",
+            "-exc",
+            util.Interpolate(
+                f"""
+set -euo pipefail
+
+suites=""
+for name in $({list_files_cmd} | grep -oE '/plugin/[^/]+/[^/]+/suite\\.pm$' | awk -F/ '{{print $(NF-1)}}' | sort -u); do
+    suites="$suites,$name"
+done
+suites=$(echo "$suites" | sed 's/^,//')
+echo "$suites"
+"""
+            ),
+        ]
+
+
+class RunPluginMTRSuite(Command):
+    # mtr_cases.pm resolves a bare suite name (e.g. "rocksdb") by searching
+    # under plugin/*/ itself, so passing just the suite's short name is
+    # enough -- no need to spell out the plugin/<X>/ prefix. suites is
+    # discovered up front by DiscoverPluginMTRSuites, before MariaDB-test
+    # gets installed -- see that class for why re-discovering it here, after
+    # install, doesn't work. No suite for the plugin under test is skipped
+    # rather than failing the build.
+    def __init__(
+        self, package_type: str, suites: str, workdir: PurePath = PurePath(".")
+    ):
+        self.package_type = package_type
+        self.suites = suites
         super().__init__(name="Run plugin MTR suite", workdir=workdir, user="root")
 
     def as_cmd_arg(self) -> list[str]:
@@ -195,14 +238,7 @@ if [ -z "$mtr_script" ]; then
 fi
 mtr_base_dir=$(dirname "$mtr_script")
 
-suites=""
-for suite_pm in "$mtr_base_dir"/plugin/*/*/suite.pm; do
-    [ -f "$suite_pm" ] || continue
-    name=$(basename "$(dirname "$suite_pm")")
-    suites="$suites,$name"
-done
-suites=$(echo "$suites" | sed 's/^,//')
-
+suites="{self.suites}"
 if [ -z "$suites" ]; then
     echo "No MTR suite found for plugin %(prop:plugin)s -- skipping"
     exit 0
