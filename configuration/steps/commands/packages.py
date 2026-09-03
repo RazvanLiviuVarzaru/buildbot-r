@@ -382,6 +382,7 @@ else
 fi
 mkdir -p "$repo_dir"
 curl -fsSL {self.repo_file_url} -o "$repo_dir/MariaDB.repo"
+echo "module_hotfixes = 1" >> "$repo_dir/MariaDB.repo"
 
 if command -v dnf >/dev/null 2>&1; then
     dnf makecache
