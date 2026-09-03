@@ -21,6 +21,11 @@ _REPO_FILE_BY_PACKAGE_TYPE = {
 # rather than $ARTIFACTS_URL (dev), to build against real tarballs while this
 # pipeline is still dev-only. Revert to os.environ["ARTIFACTS_URL"] once done.
 _DEVEL_REPO_ARTIFACTS_URL = "https://ci.mariadb.org"
+# x86 worker images are a separate 32-bit tag (e.g. "debian12-386"), not part
+# of the amd64/aarch64 multi-arch manifest the other image tags resolve to,
+# and need an explicit --platform on pull to fetch that 32-bit variant.
+_ARCH_IMAGE_SUFFIX = {"x86": "-386"}
+_ARCH_PLATFORM = {"x86": "linux/386"}
 
 
 def foundry_scheduler_name(mariadb_version):
@@ -40,12 +45,14 @@ for package_config in _FOUNDRY_CONFIG["packages"]:
     package = f"{ops}-{version}"
     package_type = package_config["type"]
     for arch in package_config["arch"]:
+        image = f"{ops}{version}{_ARCH_IMAGE_SUFFIX.get(arch, '')}"
+        platform = _ARCH_PLATFORM.get(arch)
         if package_type == "bintar":
             # Bintar builds link against a MariaDB server bintar (see
             # autobake.bintar) instead of installing -devel packages from an
             # autobake builder's repo, so there's no repo_file_url to build.
             sequence = autobake.bintar(
-                docker_config(image=f"{ops}{version}"),
+                docker_config(image=image, platform=platform),
                 package_config["ci_bintar_builder"],
             )
         else:
@@ -61,7 +68,9 @@ for package_config in _FOUNDRY_CONFIG["packages"]:
             repo_file_url = (
                 f"{_DEVEL_REPO_ARTIFACTS_URL}/%(prop:tarbuildnum)s/{autobake_builder}/{repo_file}"
             )
-            sequence = sequence_fn(docker_config(image=f"{ops}{version}"), repo_file_url)
+            sequence = sequence_fn(
+                docker_config(image=image, platform=platform), repo_file_url
+            )
         builder = GenericBuilder(
             name=f"foundry-{arch}-{ops}-{version}",
             sequences=[sequence],
