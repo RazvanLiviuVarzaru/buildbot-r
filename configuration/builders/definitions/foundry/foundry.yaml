@@ -53,7 +53,7 @@ packages:
     version: "12"
     type: deb
     os_info_key: debian-12
-    arch: [amd64, aarch64]
+    arch: [amd64, aarch64, x86]
   - ops: debian
     version: "13"
     type: deb
