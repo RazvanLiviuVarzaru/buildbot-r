@@ -157,20 +157,24 @@ echo "$suites"
 class DiscoverPluginMTRSuites(Command):
     # MARIADB_ADD_PLUGIN's INSTALL_MYSQL_TEST (cmake/plugin.cmake) installs
     # a plugin's mysql-test suite(s) under <mtr_base_dir>/plugin/<X>/<name>/,
-    # e.g. plugin/rocksdb/rocksdb/suite.pm or
-    # plugin/columnstore/columnstore/suite.pm -- the same layout MariaDB-test
-    # itself uses for the suites it bundles for its own plugins (rocksdb,
-    # columnstore, auth_gssapi, ...). Once MariaDB-test is installed
-    # alongside our plugin there's no way to tell "ours" apart by re-scanning
-    # the merged plugin/ directory -- doing that picked up every bundled
-    # suite as well as (or instead of) the plugin actually under test.
-    # Read the suite name(s) straight off the plugin's own just-built
-    # package listing instead, before MariaDB-test ever gets installed. <X>
-    # is the plugin's own CMake project/target name, which isn't always the
-    # same as the Foundry "plugin" property (e.g. tidesql's CMake target is
-    # actually "tidesdb"), so this discovers whatever actually landed under
-    # plugin/*/*/suite.pm rather than guessing it. Emits comma-separated
-    # suite name(s) on stdout for capture into a property (e.g. via
+    # e.g. plugin/rocksdb/rocksdb/ or plugin/tidesdb/tidesdb/. <X> is the
+    # plugin's own CMake source-dir name, which isn't always the same as the
+    # Foundry "plugin" property (e.g. tidesql's is actually "tidesdb"), so
+    # this discovers whatever actually landed under plugin/*/*/ rather than
+    # guessing it. A suite dir is identified by its t/*.test files, not a
+    # suite.pm -- suite.pm is optional (only needed for custom My::Suite
+    # logic) and plenty of real suites, tidesdb's included, ship only
+    # t/*.test + suite.opt/r/include and no suite.pm at all.
+    #
+    # This is the same plugin/*/*/ layout MariaDB-test itself uses for the
+    # suites it bundles for its own plugins (rocksdb, columnstore,
+    # auth_gssapi, ...). Once MariaDB-test is installed alongside our plugin
+    # there's no way to tell "ours" apart by re-scanning the merged plugin/
+    # directory -- doing that picked up every bundled suite as well as (or
+    # instead of) the plugin actually under test. Read the suite name(s)
+    # straight off the plugin's own just-built package listing instead,
+    # before MariaDB-test ever gets installed. Emits comma-separated suite
+    # name(s) on stdout for capture into a property (e.g. via
     # PropFromShellStep) and use as RunPluginMTRSuite's suites arg.
     def __init__(self, package_type: str, workdir: PurePath = PurePath(".")):
         self.package_type = package_type
@@ -189,8 +193,12 @@ class DiscoverPluginMTRSuites(Command):
 set -euo pipefail
 
 suites=""
-for name in $({list_files_cmd} | grep -oE '/plugin/[^/]+/[^/]+/suite\\.pm$' | awk -F/ '{{print $(NF-1)}}' | sort -u); do
-    suites="$suites,$name"
+for path in $({list_files_cmd} | grep -oE '/plugin/[^/]+/[^/]+/t/[^/]+\\.test$' || true); do
+    name=$(basename "$(dirname "$(dirname "$path")")")
+    case ",$suites," in
+        *",$name,"*) ;;
+        *) suites="$suites,$name" ;;
+    esac
 done
 suites=$(echo "$suites" | sed 's/^,//')
 echo "$suites"
