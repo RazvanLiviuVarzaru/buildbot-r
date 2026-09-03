@@ -95,7 +95,13 @@ class DownloadServerBintar(Command):
 set -euo pipefail
 
 base_url="https://ci.mariadb.org/%(prop:tarbuildnum)s/{self.ci_builder}"
-filename=$(curl -fsSL "$base_url/" | grep -oE 'href="mariadb-[^"]*-linux[^"]*\\.tar\\.gz"' | head -1 | sed -E 's/^href="(.*)"$/\\1/')
+# `... | head -1` here would let head close the pipe as soon as it has its
+# one line, which under pipefail can turn curl/tar's resulting SIGPIPE into
+# a hard failure of the whole step (seen in practice with tar -tzf listing a
+# whole bintar's contents). `awk 'NR==1'` picks the same first line but
+# still reads its input through to EOF, so the upstream command always
+# exits normally instead of getting killed by a broken pipe.
+filename=$(curl -fsSL "$base_url/" | grep -oE 'href="mariadb-[^"]*-linux[^"]*\\.tar\\.gz"' | sed -E 's/^href="(.*)"$/\\1/' | awk 'NR==1')
 if [ -z "$filename" ]; then
     echo "Could not find a server bintar under $base_url" >&2
     exit 1
@@ -105,7 +111,7 @@ mkdir -p /home/buildbot/bintar
 curl -fsSL "$base_url/$filename" -o "/home/buildbot/bintar/$filename"
 tar -xzf "/home/buildbot/bintar/$filename" -C /home/buildbot/bintar
 
-dirname=$(tar -tzf "/home/buildbot/bintar/$filename" | head -1 | cut -d/ -f1)
+dirname=$(tar -tzf "/home/buildbot/bintar/$filename" | awk -F/ 'NR==1{{print $1}}')
 echo "/home/buildbot/bintar/$dirname"
 """
             ),
