@@ -62,6 +62,22 @@ FOUNDRY_FORCE_SCHEDULERS.append(
     )
 )
 
+# GitHub team allowed to force the dispatcher, the only place a run's inputs
+# (package sources, tarbuildnum) are chosen. GitHubAuth on master-web reports
+# team membership as "<org>/<team slug>" groups.
+FOUNDRY_TEAM = "MariaDB/staff"
+
+# Loaded by master-web ahead of its organisation-wide control rule, which
+# still covers everything else. Rebuild stays open: it reuses the original
+# build's properties.
+FOUNDRY_AUTHZ_RULES = [
+    util.ForceBuildEndpointMatcher(
+        builder=foundry_builders.DISPATCHER_BUILDER.name,
+        role=FOUNDRY_TEAM,
+        defaultDeny=True,
+    )
+]
+
 # Pull requests against Foundry itself, and nothing else: category "pull" is
 # what buildbot's GitHub hook (www/hooks/github.py) stamps on pull request
 # events, so push events on the same repository don't match. The dispatcher

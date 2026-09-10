@@ -37,6 +37,8 @@ For each supported MariaDB version the force scheduler asks where the server pac
 
 There is no plugin picker: the dispatcher discovers what to build.
 
+Only members of the `MariaDB/staff` GitHub team (`FOUNDRY_TEAM` in `schedulers/foundry.py`) can press Force, since that is where a run's inputs are chosen. Other MariaDB members still see the button but get a 403. They can still Rebuild an existing run, which reuses its inputs.
+
 ### Pull request
 
 Fully automatic, and deliberately narrower than a force build:
