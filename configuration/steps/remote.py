@@ -14,6 +14,10 @@ class ShellStep(BaseStep):
         options (StepOptions): Options for the step, such as timeout and retry settings.
         interrupt_signal (str): The signal to send to interrupt the command (default: "TERM").
         env_vars (list[tuple]): Environment variables to set for the command.
+        secret_env_vars (list[tuple]): Like env_vars, but for credentials: InContainer
+            forwards them by name (docker run -e NAME) rather than inlining them as
+            -e NAME=value, so the value never lands on a command line, and logEnviron
+            is turned off. Use git_auth.git_auth_env_vars().
         url (str): Optional URL to associate with the step.
         urlText (str): Optional text for the URL. Defaults to the url itself.
         timeout (int): Timeout for the command execution in seconds. Defaults to 1200 seconds.
@@ -30,15 +34,19 @@ class ShellStep(BaseStep):
         options: StepOptions = None,
         interrupt_signal="TERM",
         env_vars: list[tuple] = None,
+        secret_env_vars: list[tuple] = None,
         url: URL = None,
         timeout=1200,  # Default timeout in seconds
         warn_on_fail=False,
     ):
         if env_vars is None:
             env_vars = []
+        if secret_env_vars is None:
+            secret_env_vars = []
         self.command = command
         self.interrupt_signal = interrupt_signal
         self.env_vars = env_vars
+        self.secret_env_vars = secret_env_vars
         self.url = url
         self.timeout = timeout
         assert isinstance(command, Command)
@@ -59,7 +67,14 @@ class ShellStep(BaseStep):
             workdir=workdir,
             url=self.url,
             timeout=self.timeout,
-            env={k: util.Interpolate(v) for k, v in self.env_vars},
+            env={
+                k: util.Interpolate(v)
+                for k, v in (*self.env_vars, *self.secret_env_vars)
+            },
+            # The worker dumps the environment to its own twistd.log too, and
+            # only the master's copy is scrubbed. Suppress it when we carry a
+            # credential, since most of our workers are long-lived.
+            logEnviron=not self.secret_env_vars,
             decodeRC=self.decode_return_code,
         )
 

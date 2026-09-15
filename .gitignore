@@ -11,6 +11,10 @@ master-config.yaml
 master-libvirt/id_ed25519
 master-libvirt/known_hosts
 master-private.cfg
+# Secrets only, one token per file. Nothing else may live here: SecretInAFile
+# treats every file in the directory as a secret and refuses to start if any of
+# them is group- or world-readable (a .gitkeep would break every master).
+master-credential-provider/
 prof*
 venv
 /workers/

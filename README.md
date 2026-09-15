@@ -165,6 +165,71 @@ Master.cfg is a Python script and defines the behavior of Buildbot. These are th
 
 Also, master.cfg sources a private config file that is not included in this repo, namely _master-private.cfg_. This file should include a Python dictionary with private information like worker passwords, database url and anything else not deemed for public disclosure.
 
+#### GitHub credentials
+
+github.com rejects anonymous clones from our CI with HTTP 401, so git
+operations authenticate with a read-only Personal Access Token, stored as the
+secret `github_token` in `MASTER_CREDENTIALS_DIR` (buildbot's `SecretInAFile`
+provider):
+
+```sh
+install -d -m 0700 master-credential-provider
+printf '%s' "$PAT" > master-credential-provider/github_token
+chmod 0600 master-credential-provider/github_token
+# reconfig (SIGHUP, no restart) only the masters that clone from github.com
+for m in master-galera master-nonlatent master-protected-branches master-migration; do
+  docker kill -s HUP "$m"
+done
+```
+
+Git normally sends requests anonymously and offers credentials only after a
+401, so we also set `http.proactiveAuth=basic` to send the token up front. That
+needs git >= 2.46: on older images git authenticates only when GitHub
+challenges it, which still fixes the 401 but lets unchallenged requests go out
+anonymously. Where proactive auth is in effect, a missing or empty token fails
+the clone instead of falling back to anonymous access.
+
+**No scope beyond public read is required** — authenticating at all is what
+lifts us off the 401 path. Prefer a fine-grained token with *Public
+repositories (read-only)*; a classic token with no scopes ticked also works.
+Either can be set to never expire. If you do set an expiry, track it: when the
+token lapses every builder that clones fails at once, with a symptom
+indistinguishable from the original 401.
+
+Four things that will bite you otherwise:
+
+- The file holds the token and nothing else (a trailing newline is stripped).
+- `SecretInAFile` treats **every** file in that directory as a secret and
+  refuses to start if any is group- or world-readable — so no notes, backups
+  or `.gitkeep` in there.
+- The secret is read once at reconfig, not per build, so a **reload is required**
+  after creating or rotating it. A missing secret fails the builds that need it,
+  not `checkconfig`.
+- No write access is granted or needed. The only factory that pushes (the
+  unexercised staging-branch rebase in `master-protected-branches`) still uses
+  `push_access_token` from `master-private.cfg`.
+
+To confirm the token itself is accepted:
+
+```sh
+curl -sS -H "Authorization: Bearer $(cat master-credential-provider/github_token)" \
+     https://api.github.com/rate_limit | grep -m1 limit
+```
+
+`"limit": 5000` means authenticated; `60` means still anonymous.
+
+That does not show that builders send it, and neither does a green build. To
+check a builder, force a build against a repository that does not exist (if
+the force-build form lets you set one), e.g.
+`https://github.com/MariaDB/this-repo-requires-auth`, and read the clone step:
+
+- `Repository not found` — the token reached git and GitHub accepted it.
+- `Authentication failed` — the token reached git but GitHub rejected it.
+- `could not read Username` — the token never reached git on that builder.
+
+Everything consuming the token goes through `git_auth.py` — never interpolate
+one into a URL or a command, use the helpers there.
+
 #### Reloading the master
 
 For changes to the master.cfg to take effect, the server needs to be reloaded. While doing this, please keep an eye on the logs with `tail -f /srv/buildbot/master/twistd.log`. The Buildbot master is managed by our own rolled systemd file. To invoke a reload run `sudo systemctl reload buildbot-master`. The other usual systemctl are also available (`status`, `restart`). Before the reload, consider testing the config with `buildbot checkconfig`.
