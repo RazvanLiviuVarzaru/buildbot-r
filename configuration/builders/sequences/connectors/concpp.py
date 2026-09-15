@@ -38,6 +38,7 @@ from configuration.steps.generators.cmake.options import (
     CMakeOption,
 )
 from configuration.steps.remote import PropFromShellStep, ShellStep
+from git_auth import git_auth_args, git_auth_env_vars
 
 
 def git_clone_step(step_wrapping_fn=lambda step: step, source_path: str = "."):
@@ -49,6 +50,7 @@ def git_clone_step(step_wrapping_fn=lambda step: step, source_path: str = "."):
                 commit="%(prop:revision)s",
                 workdir=source_path,
             ),
+            secret_env_vars=git_auth_env_vars(),
             options=StepOptions(
                 description="Initialize git repository",
                 descriptionDone="Git repository initialized",
@@ -694,9 +696,10 @@ def bintar(
                 ShellStep(
                     command=BashCommand(
                         name="Checkout latest C/C",
-                        cmd="git fetch origin $(([ '%(prop:cpp_version)s' = '1.0' ]) && echo 3.3 || echo 3.4) && git reset --hard FETCH_HEAD",
+                        cmd=f"git {git_auth_args()} fetch origin $(([ '%(prop:cpp_version)s' = '1.0' ]) && echo 3.3 || echo 3.4) && git reset --hard FETCH_HEAD",
                         workdir=PurePath(source_path) / "libmariadb",
                     ),
+                    secret_env_vars=git_auth_env_vars(),
                     options=StepOptions(
                         description="Checking out latest C/C",
                         descriptionDone="Checked out latest C/C",

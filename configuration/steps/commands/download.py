@@ -2,6 +2,7 @@ from pathlib import PurePath
 
 from buildbot.plugins import util
 from configuration.steps.commands.base import Command
+from git_auth import git_auth_args
 from utils import read_template
 
 
@@ -59,6 +60,9 @@ class GitInitFromCommit(Command):
             depth = "--depth " + str(self.depth)
         else:
             depth = ""
+        # Only the network-facing commands need it; the flags reach the
+        # submodule clones too, via GIT_CONFIG_PARAMETERS.
+        auth = git_auth_args()
         return [
             "bash",
             "-exc",
@@ -66,9 +70,9 @@ class GitInitFromCommit(Command):
                 (
                     "git init && "
                     f"git remote add origin {self.repo_url} && "
-                    f"git fetch {depth} origin {self.commit} && "
+                    f"git {auth} fetch {depth} origin {self.commit} && "
                     "git checkout FETCH_HEAD && "
-                    f"git submodule update --init --recursive {depth} --jobs={self.jobs}"
+                    f"git {auth} submodule update --init --recursive {depth} --jobs={self.jobs}"
                 )
             ),
         ]

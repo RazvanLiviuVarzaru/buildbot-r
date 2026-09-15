@@ -172,6 +172,12 @@ class InContainer(BaseStep):
 
         step.env_vars = []  # Reset env_vars in the step as they are now set by docker
 
+        # Forwarded by name only: "docker run -e NAME" makes docker copy the
+        # value from its own environment, keeping the secret off the command
+        # line. Hence these, unlike env_vars above, stay in the step's env.
+        for variable, _ in step.secret_env_vars:
+            cmd_prefix.append(["-e", variable])
+
         cmd_prefix.append([f"--shm-size={self.docker_environment.shm_size}"])
         cmd_prefix.append(
             ["--ulimit", f"memlock={self.docker_environment.memlock_limit}"]

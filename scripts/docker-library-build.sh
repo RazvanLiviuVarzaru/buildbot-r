@@ -5,13 +5,33 @@ set -xeuvo pipefail
 # container builds copy permissions and
 # depend on go+rx permissions
 umask 0002
+
+# Authenticate to github.com: anonymous clones are answered with HTTP 401.
+# The PAT is read from the environment by the credential helper below, so it
+# never appears in this script's -x trace, in `ps`, or in .git/config. An empty
+# or absent BB_GITHUB_TOKEN makes the helper a no-op, leaving git to behave as
+# it did before. Keep this in sync with git_auth.py.
+# shellcheck disable=SC2016  # $BB_GITHUB_TOKEN must stay unexpanded here: it is
+# git's own helper shell that expands it, which is precisely what keeps the
+# token out of this script's -x trace.
+git_auth=(
+  -c credential.helper=
+  -c 'credential.https://github.com.helper=!f(){ [ -n "${BB_GITHUB_TOKEN:-}" ] || return 0; echo username=x-access-token; echo "password=$BB_GITHUB_TOKEN"; }; f'
+)
+# Send the token with the first request instead of after a 401 (git >= 2.46;
+# older git ignores this). Only when there is a token: proactive auth without
+# one fails the clone. Tested via :+ so the -x trace never shows the value.
+if [ "${BB_GITHUB_TOKEN:+set}" = set ]; then
+  git_auth+=(-c http.https://github.com.proactiveAuth=basic)
+fi
+
 if [ -d mariadb-docker ]; then
   pushd mariadb-docker
-  git fetch
+  git "${git_auth[@]}" fetch
   git checkout -f origin/next
   popd
 else
-  git clone --branch next https://github.com/MariaDB/mariadb-docker.git
+  git "${git_auth[@]}" clone --branch next https://github.com/MariaDB/mariadb-docker.git
   pushd mariadb-docker
   git config pull.ff only
   popd

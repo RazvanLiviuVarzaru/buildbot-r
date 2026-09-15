@@ -19,6 +19,7 @@ from configuration.steps.generators.cmake.options import (
     CMakeOption,
 )
 from configuration.steps.remote import ShellStep
+from git_auth import git_auth_env_vars
 
 
 def nopart_debug(
@@ -132,6 +133,7 @@ def steps_compile_only(
                         commit="%(prop:revision)s",
                         jobs=jobs,
                     ),
+                    secret_env_vars=git_auth_env_vars(),
                 ),
                 docker_environment=config,
             ),
