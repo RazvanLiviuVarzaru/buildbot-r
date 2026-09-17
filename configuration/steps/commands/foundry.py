@@ -231,7 +231,11 @@ class InstallBuiltPackages(Command):
         if self.package_type == "RPM":
             install_plugin = """
 install_plugin() {
-    dnf install -y "$1.build"/*.rpm || return 1
+    if command -v zypper >/dev/null 2>&1; then
+        zypper --non-interactive install --allow-unsigned-rpm "$1.build"/*.rpm || return 1
+    else
+        dnf install -y "$1.build"/*.rpm || return 1
+    fi
     for f in "$1.build"/*.rpm; do
         pkg=$(rpm -qp --qf '%{NAME}' "$f")
         if ! rpm -q "$pkg" >/dev/null 2>&1; then
@@ -287,6 +291,40 @@ echo "Failed:    ${{failed:-(none)}}"
 verdict "$installed" "$failed" \\
     "No plugin package could be installed" \\
     "These plugins failed to install: $failed"
+""",
+        ]
+
+
+class PrepareBaseImage(Command):
+    # rpm/deb plugins are installed and tested in the target's plain upstream
+    # base image, so their packages have to pull in everything they need.
+    # This adds only what the pipeline itself needs there, nothing the
+    # packages might depend on:
+    #   - the buildbot user, with the worker images' uid so it owns the
+    #     shared workspace volume (the steps run as it by default, MTR on
+    #     purpose). --non-unique: some bases already have a uid 1000 user.
+    #   - apt bases: ca-certificates and curl, to fetch the https repos.
+    #   - zypper bases: findutils, for saving MTR logs on failure.
+    WORKER_UID = 1000
+
+    def __init__(self, workdir: PurePath = PurePath(".")):
+        super().__init__(name="Prepare base image", workdir=workdir, user="root")
+
+    def as_cmd_arg(self) -> list[str]:
+        return [
+            "bash",
+            "-exc",
+            f"""
+set -euo pipefail
+id -u buildbot >/dev/null 2>&1 || useradd --non-unique --uid {self.WORKER_UID} \\
+    --no-create-home --home-dir /home/buildbot buildbot
+if command -v apt-get >/dev/null 2>&1; then
+    export DEBIAN_FRONTEND=noninteractive
+    apt-get update
+    apt-get install -y --no-install-recommends ca-certificates curl
+elif command -v zypper >/dev/null 2>&1; then
+    zypper --non-interactive install findutils
+fi
 """,
         ]
 

@@ -398,10 +398,10 @@ fi
 class SetupRPMRepoFromURL(Command):
     # Unlike SetupRPMRepo, installs an existing, unsigned MariaDB.repo published
     # by a CI build as-is, instead of constructing a repo definition from scratch.
-    def __init__(self, repo_file_url: str):
+    def __init__(self, repo_file_url: str, name: str = "Install MariaDB CI repo"):
         self.repo_file_url = repo_file_url
         super().__init__(
-            name="Install MariaDB CI repo",
+            name=name,
             workdir=PurePath("."),
             user="root",
         )
@@ -438,10 +438,12 @@ fi
 class SetupDEBRepoFromURL(Command):
     # Unlike SetupDEBRepo, installs an existing, unsigned mariadb.sources file
     # published by a CI build as-is, instead of constructing one from scratch.
-    def __init__(self, sources_file_url: str):
+    def __init__(
+        self, sources_file_url: str, name: str = "Install MariaDB CI repo"
+    ):
         self.sources_file_url = sources_file_url
         super().__init__(
-            name="Install MariaDB CI repo",
+            name=name,
             workdir=PurePath("."),
             user="root",
         )
@@ -463,7 +465,10 @@ apt-get update
 
 class InstallDEBPackages(Command):
     def __init__(
-        self, packages: Union[str, Iterable[str]], workdir: PurePath = PurePath(".")
+        self,
+        packages: Union[str, Iterable[str]],
+        workdir: PurePath = PurePath("."),
+        name: str = "Install DEB packages",
     ):
         if isinstance(packages, str):
             self.packages = [packages]
@@ -471,7 +476,7 @@ class InstallDEBPackages(Command):
             self.packages = list(packages)
 
         super().__init__(
-            name="Install DEB packages",
+            name=name,
             workdir=workdir,
             user="root",
         )

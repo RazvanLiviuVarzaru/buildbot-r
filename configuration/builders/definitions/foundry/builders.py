@@ -1,3 +1,4 @@
+from dataclasses import replace
 from pathlib import Path
 
 import yaml
@@ -20,6 +21,28 @@ _SEQUENCE_BY_PACKAGE_TYPE = {
     "deb": autobake.deb,
 }
 
+
+def _base_image_config(package_config, arch_override):
+    # The target's plain upstream image, where rpm/deb packages are installed
+    # and tested (see autobake._packages). A full image reference, hence the
+    # empty repository; same bind mounts and environment as the worker image,
+    # plus the target's base_mounts.
+    image = package_config["base_image"]
+    if "base_image_prefix" in arch_override:
+        image = arch_override["base_image_prefix"] + image.rsplit("/", 1)[-1]
+    config = docker_config(
+        image=image,
+        platform=arch_override.get("platform"),
+        additional_bind_mounts=[
+            tuple(mount) for mount in package_config.get("base_mounts", [])
+        ],
+        # A bare distro image has no debconf defaults; keep apt from
+        # prompting (e.g. tzdata) while dependencies get pulled in.
+        additional_env_vars=[("DEBIAN_FRONTEND", "noninteractive")],
+    )
+    return replace(config, repository="")
+
+
 # (package type, its settings, target, target settings), from the
 # per-family sections of "packages" in foundry.yaml.
 _TARGETS = [
@@ -35,9 +58,10 @@ FOUNDRY_BUILDERS_BY_PACKAGE = {}
 for package_type, type_config, package, package_config in _TARGETS:
     for arch in package_config["arch"]:
         arch_override = _ARCH_OVERRIDES.get(arch, {})
+        platform = arch_override.get("platform")
         container_config = docker_config(
             image=f"{package_config['image']}{arch_override.get('image_suffix', '')}",
-            platform=arch_override.get("platform"),
+            platform=platform,
         )
         # The MariaDB server builder this one mirrors, e.g.
         # "amd64-debian-12-deb-autobake" -- see BUILDERS_AUTOBAKE in
@@ -62,6 +86,7 @@ for package_type, type_config, package, package_config in _TARGETS:
             # publish one repo directory per MariaDB version.
             sequence = _SEQUENCE_BY_PACKAGE_TYPE[package_type](
                 container_config,
+                base_config=_base_image_config(package_config, arch_override),
                 repo_file_url=(
                     f"{_CI_URL}/%(prop:tarbuildnum)s/{server_builder}"
                     f"/{type_config['repo_file']}"

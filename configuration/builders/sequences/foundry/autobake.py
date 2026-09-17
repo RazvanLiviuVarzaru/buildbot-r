@@ -20,6 +20,7 @@ from configuration.steps.commands.foundry import (
     InstallBuiltPackages,
     ListInstalledPlugins,
     ListPluginsWithPackages,
+    PrepareBaseImage,
     RunPluginMTRSuite,
     RunPluginMTRSuiteFromBintar,
     SavePluginPackages,
@@ -189,190 +190,156 @@ def _save_packages_step(config: DockerConfig):
     )
 
 
-def deb(
+_PACKAGE_COMMANDS = {
+    "DEB": (SetupDEBRepoFromURL, SetupDEBRepo, InstallDEBPackages),
+    "RPM": (SetupRPMRepoFromURL, SetupRPMRepo, InstallRPMPackages),
+}
+
+
+def _server_repo_steps(
+    package_type: str,
     config: DockerConfig,
     repo_file_url: str,
     mirror_repo_url: str,
-    build_packages: list[str],
-    test_packages: list[str],
+    where: str,
 ):
-    sequence = BuildSequence()
-    sequence.add_step(clone_foundry_step(config))
-    sequence.add_step(_capture_foundry_revision_step(config))
-    sequence.add_step(
+    setup_from_url, setup_mirror, _ = _PACKAGE_COMMANDS[package_type]
+    return [
         InContainer(
             ShellStep(
-                command=SetupDEBRepoFromURL(repo_file_url),
+                command=setup_from_url(
+                    repo_file_url, name=f"Install MariaDB CI repo ({where})"
+                ),
                 options=StepOptions(doStepIf=_uses_ci_tarball),
             ),
             docker_environment=config,
             container_commit=True,
-        )
-    )
-    sequence.add_step(
+        ),
         InContainer(
             ShellStep(
-                command=SetupDEBRepo(
+                command=setup_mirror(
                     repo_name="mariadb",
                     repo_url=mirror_repo_url,
-                    name="Install MariaDB Server mirror repo",
+                    name=f"Install MariaDB Server mirror repo ({where})",
                 ),
                 options=StepOptions(doStepIf=_uses_mirror),
             ),
             docker_environment=config,
             container_commit=True,
-        )
-    )
-    sequence.add_step(
-        InContainer(
-            ShellStep(command=InstallDEBPackages(packages=build_packages)),
-            docker_environment=config,
-            container_commit=True,
-        )
-    )
-    sequence.add_step(_build_plugins_step(config, BuildPlugins("DEB")))
-    sequence.add_step(_built_plugins_step(config))
-    sequence.add_step(
-        InContainer(
-            ShellStep(
-                command=InstallBuiltPackages("DEB"),
-                env_vars=_BUILT_PLUGINS_ENV,
-                options=_BEST_EFFORT_OPTIONS,
-                decode_rc=ShellStep.PARTIAL_SUCCESS_DECODE_RC,
-            ),
-            docker_environment=config,
-            container_commit=True,
-        )
-    )
-    sequence.add_step(
-        InContainer(
-            PropFromShellStep(
-                command=ListInstalledPlugins("DEB"),
-                property="installed_plugins",
-                env_vars=_BUILT_PLUGINS_ENV,
-            ),
-            docker_environment=config,
-        )
-    )
-    # Before mariadb-test lands: it ships plugin suites of its own under the
-    # same layout, which would be indistinguishable from ours afterwards.
-    sequence.add_step(
-        InContainer(
-            PropFromShellStep(
-                command=DiscoverPluginMTRSuites("DEB"),
-                property="plugin_suites",
-                env_vars=_INSTALLED_PLUGINS_ENV,
-            ),
-            docker_environment=config,
-        )
-    )
-    sequence.add_step(_save_packages_step(config))
-    sequence.add_step(
-        InContainer(
-            ShellStep(command=InstallDEBPackages(packages=test_packages)),
-            docker_environment=config,
-            container_commit=True,
-        )
-    )
-    sequence.add_step(
-        _run_plugin_mtr_suite_step(
-            config, RunPluginMTRSuite("DEB", "%(prop:plugin_suites)s")
-        )
-    )
-    return sequence
+        ),
+    ]
 
 
-def rpm(
+def _packages(
+    package_type: str,
     config: DockerConfig,
+    base_config: DockerConfig,
     repo_file_url: str,
     mirror_repo_url: str,
     build_packages: list[str],
     test_packages: list[str],
 ):
+    # Built in the worker image (config), then installed and tested in the
+    # target's plain upstream base image (base_config), so a package that
+    # doesn't declare a dependency fails to install or run instead of
+    # finding it already there. Switching to base_config swaps the container
+    # image but keeps the workspace volume, and with it the built packages;
+    # nothing installed in the worker image comes along.
+    _, _, install = _PACKAGE_COMMANDS[package_type]
     sequence = BuildSequence()
+
+    # Build, in the worker image.
     sequence.add_step(clone_foundry_step(config))
     sequence.add_step(_capture_foundry_revision_step(config))
+    for step in _server_repo_steps(
+        package_type, config, repo_file_url, mirror_repo_url, "worker image"
+    ):
+        sequence.add_step(step)
     sequence.add_step(
         InContainer(
             ShellStep(
-                command=SetupRPMRepoFromURL(repo_file_url),
-                options=StepOptions(doStepIf=_uses_ci_tarball),
+                command=install(
+                    packages=build_packages, name="Install build dependencies"
+                )
             ),
             docker_environment=config,
             container_commit=True,
         )
     )
-    sequence.add_step(
-        InContainer(
-            ShellStep(
-                command=SetupRPMRepo(
-                    repo_name="mariadb",
-                    repo_url=mirror_repo_url,
-                    name="Install MariaDB Server mirror repo",
-                ),
-                options=StepOptions(doStepIf=_uses_mirror),
-            ),
-            docker_environment=config,
-            container_commit=True,
-        )
-    )
-    sequence.add_step(
-        InContainer(
-            ShellStep(command=InstallRPMPackages(packages=build_packages)),
-            docker_environment=config,
-            container_commit=True,
-        )
-    )
-    sequence.add_step(_build_plugins_step(config, BuildPlugins("RPM")))
+    sequence.add_step(_build_plugins_step(config, BuildPlugins(package_type)))
     sequence.add_step(_built_plugins_step(config))
+    sequence.add_step(_save_packages_step(config))
+
+    # Install and test, in the base image.
+    sequence.add_step(
+        InContainer(
+            ShellStep(command=PrepareBaseImage()),
+            docker_environment=base_config,
+            container_commit=True,
+        )
+    )
+    for step in _server_repo_steps(
+        package_type, base_config, repo_file_url, mirror_repo_url, "base image"
+    ):
+        sequence.add_step(step)
     sequence.add_step(
         InContainer(
             ShellStep(
-                command=InstallBuiltPackages("RPM"),
+                command=InstallBuiltPackages(package_type),
                 env_vars=_BUILT_PLUGINS_ENV,
                 options=_BEST_EFFORT_OPTIONS,
                 decode_rc=ShellStep.PARTIAL_SUCCESS_DECODE_RC,
             ),
-            docker_environment=config,
+            docker_environment=base_config,
             container_commit=True,
         )
     )
     sequence.add_step(
         InContainer(
             PropFromShellStep(
-                command=ListInstalledPlugins("RPM"),
+                command=ListInstalledPlugins(package_type),
                 property="installed_plugins",
                 env_vars=_BUILT_PLUGINS_ENV,
             ),
-            docker_environment=config,
+            docker_environment=base_config,
         )
     )
-    # Before MariaDB-test lands: it ships plugin suites of its own under the
-    # same layout, which would be indistinguishable from ours afterwards.
+    # Before the server test package lands: it ships plugin suites of its own
+    # under the same layout, which would be indistinguishable from ours
+    # afterwards.
     sequence.add_step(
         InContainer(
             PropFromShellStep(
-                command=DiscoverPluginMTRSuites("RPM"),
+                command=DiscoverPluginMTRSuites(package_type),
                 property="plugin_suites",
                 env_vars=_INSTALLED_PLUGINS_ENV,
             ),
-            docker_environment=config,
+            docker_environment=base_config,
         )
     )
-    sequence.add_step(_save_packages_step(config))
     sequence.add_step(
         InContainer(
-            ShellStep(command=InstallRPMPackages(packages=test_packages)),
-            docker_environment=config,
+            ShellStep(
+                command=install(packages=test_packages, name="Install test packages")
+            ),
+            docker_environment=base_config,
             container_commit=True,
         )
     )
     sequence.add_step(
         _run_plugin_mtr_suite_step(
-            config, RunPluginMTRSuite("RPM", "%(prop:plugin_suites)s")
+            base_config, RunPluginMTRSuite(package_type, "%(prop:plugin_suites)s")
         )
     )
     return sequence
+
+
+def deb(config: DockerConfig, base_config: DockerConfig, **kwargs):
+    return _packages("DEB", config, base_config, **kwargs)
+
+
+def rpm(config: DockerConfig, base_config: DockerConfig, **kwargs):
+    return _packages("RPM", config, base_config, **kwargs)
 
 
 _SERVER_BINTAR_PROP = "%(prop:server_bintar_dir)s"

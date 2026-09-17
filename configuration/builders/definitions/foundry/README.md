@@ -19,8 +19,14 @@ Two things vary per run and are decided at run time rather than baked into the b
 1. **Trigger** — someone presses Force, or GitHub sends a pull request event for the Foundry repository.
 1. **Discover** — the dispatcher clones Foundry and reads the plugin list out of it: all plugins, or just the ones a pull request touches.
 1. **Fan out** — one `Triggerable` per supported MariaDB version, carrying the plugin list and the chosen package source.
-1. **Build and test** — per OS and architecture, in that target's own container.
+1. **Build and test** — per OS and architecture: rpm and deb packages are built in the target's worker image, then installed and tested in its plain upstream base image (see below).
 1. **Report** — the dispatcher waits for every package build and fails if any of them does. On a pull request, its result is posted to GitHub as the `buildbot/foundry-trigger-builders` status.
+
+### Installing into a base image
+
+A worker image already carries most of what MariaDB and its plugins need, so a package that forgets to declare a dependency would still install and pass there. rpm and deb packages are therefore installed and tested in the target's `base_image` from `foundry.yaml`, the upstream image its worker image is built from (e.g. `debian:12`, `quay.io/centos/centos:stream9`, `ubi9/ubi`, `bci-base:16.0`), so they have to pull in every dependency themselves.
+
+The build workspace, with the built packages in it, carries over; nothing installed in the worker image does. The base image gets only what the pipeline itself needs: the `buildbot` user (uid 1000, owner of the workspace), `ca-certificates` and `curl` on apt bases, `findutils` on zypper bases. RHEL targets use UBI with the host's RHEL entitlement mounted (`base_mounts`), so they must run on RHEL hosts. x86 uses Docker Hub's `i386/` images, so it never shares a local tag with amd64.
 
 Bintar targets (centos7, almalinux8) have no `-devel` packages to install against, so they link the plugin against an unpacked MariaDB server tarball and run that tarball's bundled MTR instead of installing system packages.
 
@@ -73,7 +79,7 @@ Each stage narrows the list it hands to the next — requested, then built, then
 - where server packages come from (the CI and mirror URLs);
 - the dispatcher's builder name and image;
 - per package family (rpm, deb, bintar): the repo file, mirror path, and the packages installed to build and to test;
-- the OS × architecture matrix, named after the server builders, with each target's quay image;
+- the OS × architecture matrix, named after the server builders, with each target's quay worker image and upstream base image;
 - the supported MariaDB versions, and which targets each one builds;
 - who may press Force.
 
@@ -112,7 +118,8 @@ Pull request builds save nothing.
 - **MariaDB version is a property, not a builder.** Keeps the matrix one dimension smaller, and adding a version costs no new builders.
 - **Best effort on build and install, strict on the result.** Engineers need every plugin's outcome from one run, not just the first failure — but a partly working run must never be reported green.
 - **Pull requests are read-only.** A contributor's branch validates a change; it should not publish installable packages or pin CI builds.
-- **Every step runs in the target's own container.** A plugin package is only meaningful on the distribution it was built for, which is what makes the install test real.
+- **Every step runs in the target's own distribution.** A plugin package is only meaningful on the distribution it was built for, which is what makes the install test real.
+- **Packages are tested where nothing is preinstalled.** Installing into the plain base image, not the worker image, is what shows whether a package declares all of its dependencies.
 
 ## Where the code lives
 
