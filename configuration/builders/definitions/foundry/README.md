@@ -6,8 +6,6 @@ This pipeline takes that repository and, for every supported MariaDB version, bu
 
 Two things vary per run and are decided at run time rather than baked into the builders: **which plugins** get built, and **where the MariaDB server packages come from**. The MariaDB version is carried into the build as a property, so the same builders serve every version instead of the matrix gaining a dimension.
 
-Currently 16 OS targets across 3 architectures (amd64, aarch64, x86) make 28 builders, of which 20 run for 11.4.
-
 ## Pipeline
 
 ```text
