@@ -62,10 +62,15 @@ FOUNDRY_FORCE_SCHEDULERS.append(
     )
 )
 
-# GitHub team allowed to force the dispatcher, the only place a run's inputs
-# (package sources, tarbuildnum) are chosen. GitHubAuth on master-web reports
-# team membership as "<org>/<team slug>" groups.
-FOUNDRY_TEAM = "MariaDB/staff"
+# Role allowed to force the dispatcher, the only place a run's inputs
+# (package sources, tarbuildnum) are chosen. GitHubAuth (API v3) doesn't
+# report team membership, so the role goes to the users listed in foundry.yaml.
+FOUNDRY_FORCE_ROLE = "foundry-force"
+FOUNDRY_ROLE_MATCHERS = [
+    util.RolesFromUsername(
+        roles=[FOUNDRY_FORCE_ROLE], usernames=foundry_builders.FOUNDRY_FORCE_USERS
+    )
+]
 
 # Loaded by master-web ahead of its organisation-wide control rule, which
 # still covers everything else. Rebuild stays open: it reuses the original
@@ -73,7 +78,7 @@ FOUNDRY_TEAM = "MariaDB/staff"
 FOUNDRY_AUTHZ_RULES = [
     util.ForceBuildEndpointMatcher(
         builder=foundry_builders.DISPATCHER_BUILDER.name,
-        role=FOUNDRY_TEAM,
+        role=FOUNDRY_FORCE_ROLE,
         defaultDeny=True,
     )
 ]

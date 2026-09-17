@@ -123,6 +123,10 @@ packages:
 # each package listed for it has to be one the mirrors carry for that version.
 # Those differ per branch: 11.4 has no sles-15.7/16.0 or opensuse-16.0 repo,
 # while 11.8 does, which is why the SUSE packages are only listed from 11.8 on.
+# GitHub usernames allowed to force the dispatcher (see
+# configuration/schedulers/foundry.py).
+force_users: []
+
 mariadb_versions:
   "11.4":
     packages:

@@ -92,6 +92,8 @@ for version_config in FOUNDRY_MARIADB_VERSIONS.values():
             package in FOUNDRY_BUILDERS_BY_PACKAGE
         ), f"Unknown foundry package: {package}"
 
+FOUNDRY_FORCE_USERS = _FOUNDRY_CONFIG["force_users"]
+
 
 # Which builders each Triggerable fires, keyed by scheduler name -- consumed
 # by FOUNDRY_TRIGGERABLE_SCHEDULERS in configuration/schedulers/foundry.py.
