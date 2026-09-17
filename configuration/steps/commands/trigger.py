@@ -189,6 +189,17 @@ class _FoundryDispatchStep(BuildbotTrigger):
                 plan.append(f"{version}: MariaDB Server mirrors")
 
             schedulers_and_properties.append((spec["scheduler"], properties))
+            if spec["ci_only_targets"]:
+                # Platforms not on the mirrors yet: only a CI tarball has
+                # server packages for them.
+                ci_only = ", ".join(spec["ci_only_targets"])
+                if source == sources.CI_TARBALL:
+                    schedulers_and_properties.append(
+                        (spec["ci_only_scheduler"], properties)
+                    )
+                    plan.append(f"{version}: also CI-only targets: {ci_only}")
+                else:
+                    plan.append(f"{version}: skipped CI-only targets: {ci_only}")
 
         lines = [f"event:   {event}", f"plugins: {plugins}", *plan]
         if errors:
@@ -217,7 +228,14 @@ class FoundryDispatch:
         return _FoundryDispatchStep(
             trigger_specs=self.trigger_specs,
             name="Trigger Foundry Builders",
-            schedulerNames=sorted({spec["scheduler"] for spec in self.trigger_specs}),
+            schedulerNames=sorted(
+                {spec["scheduler"] for spec in self.trigger_specs}
+                | {
+                    spec["ci_only_scheduler"]
+                    for spec in self.trigger_specs
+                    if spec["ci_only_scheduler"]
+                }
+            ),
             waitForFinish=False,
             updateSourceStamp=False,
         )

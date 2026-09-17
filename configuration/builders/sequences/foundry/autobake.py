@@ -189,7 +189,13 @@ def _save_packages_step(config: DockerConfig):
     )
 
 
-def deb(config: DockerConfig, repo_file_url: str, mirror_repo_url: str):
+def deb(
+    config: DockerConfig,
+    repo_file_url: str,
+    mirror_repo_url: str,
+    build_packages: list[str],
+    test_packages: list[str],
+):
     sequence = BuildSequence()
     sequence.add_step(clone_foundry_step(config))
     sequence.add_step(_capture_foundry_revision_step(config))
@@ -219,7 +225,7 @@ def deb(config: DockerConfig, repo_file_url: str, mirror_repo_url: str):
     )
     sequence.add_step(
         InContainer(
-            ShellStep(command=InstallDEBPackages(packages=["libmariadb-dev"])),
+            ShellStep(command=InstallDEBPackages(packages=build_packages)),
             docker_environment=config,
             container_commit=True,
         )
@@ -263,9 +269,7 @@ def deb(config: DockerConfig, repo_file_url: str, mirror_repo_url: str):
     sequence.add_step(_save_packages_step(config))
     sequence.add_step(
         InContainer(
-            ShellStep(
-                command=InstallDEBPackages(packages=["mariadb-server", "mariadb-test"])
-            ),
+            ShellStep(command=InstallDEBPackages(packages=test_packages)),
             docker_environment=config,
             container_commit=True,
         )
@@ -278,7 +282,13 @@ def deb(config: DockerConfig, repo_file_url: str, mirror_repo_url: str):
     return sequence
 
 
-def rpm(config: DockerConfig, repo_file_url: str, mirror_repo_url: str):
+def rpm(
+    config: DockerConfig,
+    repo_file_url: str,
+    mirror_repo_url: str,
+    build_packages: list[str],
+    test_packages: list[str],
+):
     sequence = BuildSequence()
     sequence.add_step(clone_foundry_step(config))
     sequence.add_step(_capture_foundry_revision_step(config))
@@ -308,7 +318,7 @@ def rpm(config: DockerConfig, repo_file_url: str, mirror_repo_url: str):
     )
     sequence.add_step(
         InContainer(
-            ShellStep(command=InstallRPMPackages(packages=["MariaDB-devel"])),
+            ShellStep(command=InstallRPMPackages(packages=build_packages)),
             docker_environment=config,
             container_commit=True,
         )
@@ -352,9 +362,7 @@ def rpm(config: DockerConfig, repo_file_url: str, mirror_repo_url: str):
     sequence.add_step(_save_packages_step(config))
     sequence.add_step(
         InContainer(
-            ShellStep(
-                command=InstallRPMPackages(packages=["MariaDB-server", "MariaDB-test"])
-            ),
+            ShellStep(command=InstallRPMPackages(packages=test_packages)),
             docker_environment=config,
             container_commit=True,
         )
@@ -370,7 +378,9 @@ def rpm(config: DockerConfig, repo_file_url: str, mirror_repo_url: str):
 _SERVER_BINTAR_PROP = "%(prop:server_bintar_dir)s"
 
 
-def bintar(config: DockerConfig, ci_bintar_builder: str):
+def bintar(
+    config: DockerConfig, ci_bintar_url: str, mirror_url: str, mirror_bintar: str
+):
     # Bintar images (centos7, almalinux8) have no autobake builder of their
     # own to install -devel packages from -- instead, the plugin is built
     # against a matching MariaDB server bintar via -DCMAKE_PREFIX_PATH.
@@ -379,8 +389,9 @@ def bintar(config: DockerConfig, ci_bintar_builder: str):
     # installing MariaDB-server/MariaDB-test as system packages.
     #
     # Same split as the deb/rpm sequences: the CI bintar comes from
-    # ci_bintar_builder on production CI (e.g. "amd64-centos-7-bintar"), the
-    # mirror one from the newest GA release of this MariaDB version. Only one
+    # ci_bintar_url, the server builder's directory on CI (e.g.
+    # ".../<tarbuildnum>/amd64-centos-7-bintar"), the mirror one from the
+    # newest GA release of this MariaDB version. Only one
     # of the two runs, and whichever does sets server_bintar_dir.
     sequence = BuildSequence()
     sequence.add_step(clone_foundry_step(config))
@@ -388,7 +399,7 @@ def bintar(config: DockerConfig, ci_bintar_builder: str):
     sequence.add_step(
         InContainer(
             PropFromShellStep(
-                command=DownloadServerBintar(ci_bintar_builder),
+                command=DownloadServerBintar(ci_bintar_url),
                 property="server_bintar_dir",
                 options=StepOptions(doStepIf=_uses_ci_tarball),
             ),
@@ -398,7 +409,7 @@ def bintar(config: DockerConfig, ci_bintar_builder: str):
     sequence.add_step(
         InContainer(
             PropFromShellStep(
-                command=DownloadServerBintarFromMirror(),
+                command=DownloadServerBintarFromMirror(mirror_url, mirror_bintar),
                 property="server_bintar_dir",
                 options=StepOptions(doStepIf=_uses_mirror),
             ),

@@ -430,11 +430,11 @@ echo "/home/buildbot/bintar/$dirname"
 
 class DownloadServerBintar(Command):
     # Foundry bintar plugin builds link against a matching MariaDB server
-    # bintar instead of installed -devel packages. ci_builder is the
-    # production buildbot builder on ci.mariadb.org that publishes it for
-    # this OS (e.g. "amd64-centos-7-bintar").
-    def __init__(self, ci_builder: str, workdir: PurePath = PurePath(".")):
-        self.ci_builder = ci_builder
+    # bintar instead of installed -devel packages. base_url is the directory
+    # the CI server builder publishes it under for this OS (e.g.
+    # "https://ci.mariadb.org/<tarbuildnum>/amd64-centos-7-bintar").
+    def __init__(self, base_url: str, workdir: PurePath = PurePath(".")):
+        self.base_url = base_url
         super().__init__(name="Download server bintar", workdir=workdir)
 
     def as_cmd_arg(self) -> list[str]:
@@ -445,7 +445,7 @@ class DownloadServerBintar(Command):
                 f"""
 set -euo pipefail
 
-base_url="https://ci.mariadb.org/%(prop:tarbuildnum)s/{self.ci_builder}"
+base_url="{self.base_url}"
 {_FETCH_SERVER_BINTAR}
 """
             ),
@@ -457,13 +457,15 @@ class DownloadServerBintarFromMirror(Command):
     # Server mirrors, which have no tarbuildnum to fetch a CI bintar by.
     #
     # The mirrors publish one bintar per GA release, and only one flavour of
-    # it -- bintar-linux-systemd-x86_64 -- which is the same tarball whoever
-    # unpacks it, so there's no per-builder path here the way ci_builder is
-    # on the CI side. That also means this only works for x86_64 builders;
-    # the bintar packages in foundry.yaml are all arch: [amd64].
-    MIRROR_URL = "https://mirror.mariadb.org"
-
-    def __init__(self, workdir: PurePath = PurePath(".")):
+    # it -- mirror_bintar, e.g. bintar-linux-systemd-x86_64 -- which is the
+    # same tarball whoever unpacks it, so there's no per-builder path here the
+    # way there is on the CI side. That also means this only works for x86_64
+    # builders; the bintar packages in foundry.yaml are all arch: [amd64].
+    def __init__(
+        self, mirror_url: str, mirror_bintar: str, workdir: PurePath = PurePath(".")
+    ):
+        self.mirror_url = mirror_url
+        self.mirror_bintar = mirror_bintar
         super().__init__(name="Download server bintar", workdir=workdir)
 
     def as_cmd_arg(self) -> list[str]:
@@ -479,13 +481,13 @@ set -euo pipefail
 # point release off the mirror's own listing. The version is escaped into the
 # match so its dots can't act as regex wildcards (11.4 matching "1104").
 version_re=$(echo "%(prop:mariadb_version)s" | sed 's/\\./\\\\./g')
-release=$(curl -fsSL "{self.MIRROR_URL}/" | grep -oE "href=\\"mariadb-${{version_re}}\\.[0-9]+/\\"" | sed -E 's|^href="mariadb-(.*)/"$|\\1|' | sort -V | tail -1 || true)
+release=$(curl -fsSL "{self.mirror_url}/" | grep -oE "href=\\"mariadb-${{version_re}}\\.[0-9]+/\\"" | sed -E 's|^href="mariadb-(.*)/"$|\\1|' | sort -V | tail -1 || true)
 if [ -z "$release" ]; then
-    echo "No MariaDB %(prop:mariadb_version)s release found on {self.MIRROR_URL}" >&2
+    echo "No MariaDB %(prop:mariadb_version)s release found on {self.mirror_url}" >&2
     exit 1
 fi
 
-base_url="{self.MIRROR_URL}/mariadb-$release/bintar-linux-systemd-x86_64"
+base_url="{self.mirror_url}/mariadb-$release/{self.mirror_bintar}"
 {_FETCH_SERVER_BINTAR}
 """
             ),

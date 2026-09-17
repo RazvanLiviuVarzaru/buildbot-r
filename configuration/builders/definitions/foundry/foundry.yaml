@@ -1,120 +1,109 @@
 ---
-# Plugins are NOT listed here. Foundry registers one plugin per top-level
-# directory containing a CMakeLists.txt, and the dispatcher builder clones
-# the repo and discovers them at runtime (DiscoverFoundryPlugins in
-# configuration/steps/commands/foundry.py), so adding a plugin to Foundry is
-# all it takes to get it built. For a pull request only the plugins it
-# touches are built. The whole list is then handed to one
-# "cmake -P run.cmake <plugin>..." per builder.
+# Foundry CI configuration -- the one place to adjust the Foundry pipeline.
+# See README.md next to this file for how the pipeline works.
 #
-# Foundry package builders: one builder per (package, arch) combination.
-# "server_builder" is the MariaDB server builder this package mirrors, minus
-# its "<arch>-" prefix (see BUILDERS_AUTOBAKE in constants.py). The Foundry
-# builder is named "foundry-<arch>-<server_builder>", and packages and logs
-# are saved under that name. On the CI side, "<arch>-<server_builder>" is
-# the server builder whose MariaDB.repo/mariadb.sources file (or bintar) we
-# build against. The same string is the package's name in mariadb_versions.
-# "image" is the worker image tag on quay (see image_tag in os_info.yaml),
-# which doesn't follow the server builder naming (e.g. centosstream9 for
-# centos-stream9, ubuntu22.04 for ubuntu-2204).
+# Plugins are not listed here: the dispatcher discovers them in the Foundry
+# checkout (every top-level directory with a CMakeLists.txt).
+
+# ---------------------------------------------------------------------------
+# Repository
+# ---------------------------------------------------------------------------
+repository:
+  url: https://github.com/MariaDB/foundry
+  project: MariaDB/foundry
+  branch: main                        # built when Force is given no commit
+
+# ---------------------------------------------------------------------------
+# Access
+# ---------------------------------------------------------------------------
+access:
+  force_users: []                     # GitHub usernames allowed to press Force
+
+# ---------------------------------------------------------------------------
+# Server packages
+#   Picked per MariaDB version on Force: mirrors (default), a CI tarbuildnum,
+#   or skip. Pull requests always use the mirrors.
+# ---------------------------------------------------------------------------
+server:
+  ci_url: https://ci.mariadb.org      # TEMPORARY: production CI while dev-only
+  mirror_url: https://mirror.mariadb.org
+
+# ---------------------------------------------------------------------------
+# Dispatcher
+#   Clones Foundry, discovers plugins, triggers the package builders.
+# ---------------------------------------------------------------------------
+dispatcher:
+  builder: foundry-trigger-builders
+  image: debian12                     # only needs git; runs on the amd64 pool
+
+# ---------------------------------------------------------------------------
+# Architectures
+#   Overrides for arches whose image isn't in the multi-arch manifest.
+# ---------------------------------------------------------------------------
+arch:
+  x86: { image_suffix: "-386", platform: linux/386 }
+
+# ---------------------------------------------------------------------------
+# Packages
+#   One section per package family. Each target is keyed by its MariaDB
+#   server builder name, minus the "<arch>-" prefix:
+#     builder       foundry-<arch>-<target>
+#     CI source     <ci_url>/<tarbuildnum>/<arch>-<target>/
+#     image         worker image tag on quay (image_tag in os_info.yaml)
+# ---------------------------------------------------------------------------
 packages:
-  - server_builder: centos-stream9-rpm-autobake
-    image: centosstream9
-    type: rpm
-    arch: [amd64, aarch64]
-  - server_builder: centos-stream10-rpm-autobake
-    image: centosstream10
-    type: rpm
-    arch: [amd64, aarch64]
-  - server_builder: rhel-8-rpm-autobake
-    image: rhel8
-    type: rpm
-    arch: [amd64, aarch64]
-  - server_builder: rhel-9-rpm-autobake
-    image: rhel9
-    type: rpm
-    arch: [amd64, aarch64]
-  - server_builder: rhel-10-rpm-autobake
-    image: rhel10
-    type: rpm
-    arch: [amd64, aarch64]
-  - server_builder: debian-11-deb-autobake
-    image: debian11
-    type: deb
-    arch: [amd64, aarch64]
-  - server_builder: debian-12-deb-autobake
-    image: debian12
-    type: deb
-    arch: [amd64, aarch64, x86]
-  - server_builder: debian-13-deb-autobake
-    image: debian13
-    type: deb
-    arch: [amd64, aarch64]
-  - server_builder: ubuntu-2204-deb-autobake
-    image: ubuntu22.04
-    type: deb
-    arch: [amd64, aarch64]
-  - server_builder: ubuntu-2404-deb-autobake
-    image: ubuntu24.04
-    type: deb
-    arch: [amd64, aarch64]
-  - server_builder: ubuntu-2604-deb-autobake
-    image: ubuntu26.04
-    type: deb
-    arch: [amd64, aarch64]
-  # sles/opensuse images only exist for amd64 -- see os_info.yaml.
-  - server_builder: sles-1507-rpm-autobake
-    image: sles1507
-    type: rpm
-    arch: [amd64]
-  - server_builder: sles-1600-rpm-autobake
-    image: sles1600
-    type: rpm
-    arch: [amd64]
-  - server_builder: opensuse-1600-rpm-autobake
-    image: opensuse1600
-    type: rpm
-    arch: [amd64]
-  # Bintar builds: the plugin is built against a MariaDB server bintar
-  # instead of installed -devel packages -- see autobake.bintar. Only one
-  # image builds bintars per MariaDB version range: centos7 up to 11.4,
-  # almalinux8 from 11.8 on (see mariadb_versions below). On the CI side the
-  # bintar comes from the server builder under the dispatched tarbuildnum;
-  # mirror-sourced runs take the GA release bintar instead (a single
-  # linux-systemd-x86_64 tarball, the same one for every builder). x86_64
-  # only, hence arch: [amd64].
-  - server_builder: centos-7-bintar
-    image: centos7-bintar
-    type: bintar
-    arch: [amd64]
-  - server_builder: almalinux-8-bintar
-    image: almalinux8-bintar
-    type: bintar
-    arch: [amd64]
 
-# Supported MariaDB versions: which packages get built for each. Add or
-# remove a version here to change both what "foundry-trigger-builders"
-# dispatches and what foundry_force_scheduler asks about.
-#
-# Where the server packages come from is no longer pinned here -- the force
-# scheduler asks per version, offering "use the MariaDB Server mirrors" (the
-# default), "use a ci.mariadb.org tarball" (with a tarbuildnum to go with it)
-# or "skip this version". See sources.py.
-#
-# The version key doubles as the mirror path segment, so it has to be a
-# directory published under https://mirror.mariadb.org/repo/ (deb) and
-# https://mirror.mariadb.org/yum/ (rpm), with a matching mariadb-<version>.<z>
-# GA release at https://mirror.mariadb.org/ for the bintar builders -- and
-# each package listed for it has to be one the mirrors carry for that version.
-# Those differ per branch: 11.4 has no sles-15.7/16.0 or opensuse-16.0 repo,
-# while 11.8 does, which is why the SUSE packages are only listed from 11.8 on.
-# GitHub usernames allowed to force the dispatcher (see
-# configuration/schedulers/foundry.py).
-force_users: []
+  rpm:
+    repo_file: MariaDB.repo           # published by the CI server builder
+    mirror_path: yum                  # <mirror_url>/yum/<version>/<os>/<os_version>/<arch>/
+    build_packages: [MariaDB-devel]
+    test_packages: [MariaDB-server, MariaDB-test]
+    targets:
+      centos-stream9-rpm-autobake:  { image: centosstream9,  arch: [amd64, aarch64] }
+      centos-stream10-rpm-autobake: { image: centosstream10, arch: [amd64, aarch64] }
+      rhel-8-rpm-autobake:          { image: rhel8,          arch: [amd64, aarch64] }
+      rhel-9-rpm-autobake:          { image: rhel9,          arch: [amd64, aarch64] }
+      rhel-10-rpm-autobake:         { image: rhel10,         arch: [amd64, aarch64] }
+      sles-1507-rpm-autobake:       { image: sles1507,       arch: [amd64] }
+      sles-1600-rpm-autobake:       { image: sles1600,       arch: [amd64] }
+      opensuse-1600-rpm-autobake:   { image: opensuse1600,   arch: [amd64] }
 
+  deb:
+    repo_file: mariadb.sources        # published by the CI server builder
+    mirror_path: repo                 # <mirror_url>/repo/<version>/<os> <codename> main
+    build_packages: [libmariadb-dev]
+    test_packages: [mariadb-server, mariadb-test]
+    targets:
+      debian-11-deb-autobake:       { image: debian11,       arch: [amd64, aarch64] }
+      debian-12-deb-autobake:       { image: debian12,       arch: [amd64, aarch64, x86] }
+      debian-13-deb-autobake:       { image: debian13,       arch: [amd64, aarch64] }
+      ubuntu-2204-deb-autobake:     { image: ubuntu22.04,    arch: [amd64, aarch64] }
+      ubuntu-2404-deb-autobake:     { image: ubuntu24.04,    arch: [amd64, aarch64] }
+      ubuntu-2604-deb-autobake:     { image: ubuntu26.04,    arch: [amd64, aarch64] }
+
+  # Built against an unpacked server bintar instead of -devel packages.
+  # centos7 serves up to 11.4, almalinux8 from 11.8 on.
+  bintar:
+    mirror_bintar: bintar-linux-systemd-x86_64   # the only flavour mirrored, hence amd64 only
+    targets:
+      centos-7-bintar:              { image: centos7-bintar,    arch: [amd64] }
+      almalinux-8-bintar:           { image: almalinux8-bintar, arch: [amd64] }
+
+# ---------------------------------------------------------------------------
+# MariaDB versions
+#   targets   built on every run. The version must be a directory on the
+#             mirrors (yum/<version>, repo/<version>) with a GA release, and
+#             each target must be on the mirrors for it.
+#   ci_only   platforms whose server builders publish to CI but that haven't
+#             reached the mirrors yet (they only get there at release time).
+#             Built only when Force picks a CI tarbuildnum for the version;
+#             skipped on mirror runs and pull requests. Move a target up to
+#             "targets" once a release has put it on the mirrors.
+# ---------------------------------------------------------------------------
 mariadb_versions:
+
   "11.4":
-    packages:
+    targets:
       - centos-stream9-rpm-autobake
       - centos-stream10-rpm-autobake
       - rhel-8-rpm-autobake
@@ -125,20 +114,23 @@ mariadb_versions:
       - ubuntu-2204-deb-autobake
       - ubuntu-2404-deb-autobake
       - centos-7-bintar
+    ci_only: []
+
   # "11.8":
-  #   packages:
+  #   targets:
   #     - centos-stream9-rpm-autobake
   #     - centos-stream10-rpm-autobake
   #     - rhel-8-rpm-autobake
   #     - rhel-9-rpm-autobake
   #     - rhel-10-rpm-autobake
+  #     - sles-1507-rpm-autobake
+  #     - sles-1600-rpm-autobake
+  #     - opensuse-1600-rpm-autobake
   #     - debian-11-deb-autobake
   #     - debian-12-deb-autobake
   #     - debian-13-deb-autobake
   #     - ubuntu-2204-deb-autobake
   #     - ubuntu-2404-deb-autobake
   #     - ubuntu-2604-deb-autobake
-  #     - sles-1507-rpm-autobake
-  #     - sles-1600-rpm-autobake
-  #     - opensuse-1600-rpm-autobake
   #     - almalinux-8-bintar
+  #   ci_only: []

@@ -50,3 +50,12 @@ def scheduler_name(mariadb_version: str) -> str:
     for that version -- see the notes there.
     """
     return f"foundry_{_slug(mariadb_version)}_scheduler"
+
+
+def ci_only_scheduler_name(mariadb_version: str) -> str:
+    """Triggerable that runs this version's ci_only builders.
+
+    Fired only when the version's source is CI_TARBALL: these are platforms
+    whose server packages exist on CI but not yet on the mirrors.
+    """
+    return f"foundry_{_slug(mariadb_version)}_ci_only_scheduler"

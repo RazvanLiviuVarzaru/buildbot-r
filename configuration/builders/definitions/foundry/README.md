@@ -29,7 +29,7 @@ Bintar targets (centos7, almalinux8) have no `-devel` packages to install agains
 
 ### Force build
 
-The force scheduler takes an optional **Foundry commit** (a full SHA). Left empty, the run builds the tip of `main`.
+The force scheduler takes an optional **Foundry commit** (a full SHA). Left empty, the run builds the tip of `repository.branch` in `foundry.yaml` (`main`).
 
 For each supported MariaDB version the force scheduler also asks where the server packages should come from:
 
@@ -39,7 +39,7 @@ For each supported MariaDB version the force scheduler also asks where the serve
 
 There is no plugin picker: the dispatcher discovers what to build.
 
-Only the GitHub users listed under `force_users` in `foundry.yaml` can press Force, since that is where a run's inputs are chosen. Other MariaDB members still see the button but get a 403. They can still Rebuild an existing run, which reuses its inputs.
+Only the GitHub users listed under `access.force_users` in `foundry.yaml` can press Force, since that is where a run's inputs are chosen. Other MariaDB members still see the button but get a 403. They can still Rebuild an existing run, which reuses its inputs.
 
 ### Pull request
 
@@ -68,10 +68,15 @@ Each stage narrows the list it hands to the next — requested, then built, then
 
 ## Configured vs. discovered
 
-`foundry.yaml` holds:
+`foundry.yaml` is the one place to adjust Foundry. It holds:
 
-- the OS × architecture matrix and each target's package family (rpm, deb, bintar);
-- the supported MariaDB versions, and which targets each one builds.
+- the Foundry repository and its default branch;
+- where server packages come from (the CI and mirror URLs);
+- the dispatcher's builder name and image;
+- per package family (rpm, deb, bintar): the repo file, mirror path, and the packages installed to build and to test;
+- the OS × architecture matrix, named after the server builders, with each target's quay image;
+- the supported MariaDB versions, and which targets each one builds;
+- who may press Force.
 
 Discovered at run time:
 
@@ -83,7 +88,9 @@ Discovered at run time:
 
 Adding a plugin to Foundry therefore needs no change here. Adding an OS target or a MariaDB version does.
 
-A MariaDB version's package list must only name targets the mirrors actually publish for that version, since those differ per branch — 11.4 has no sles-15.7/16.0 or opensuse-16.0 repository, while 11.8 does.
+A MariaDB version's `targets` must only name platforms the mirrors actually publish for that version, since those differ per branch — 11.4 has no sles-15.7/16.0 or opensuse-16.0 repository, while 11.8 does.
+
+A new platform gets its server builders, and so CI tarballs, well before a release puts it on the mirrors. Until then, list it under the version's `ci_only`. Those targets run only when Force picks a CI tarbuildnum for that version; mirror runs and pull requests skip them, and the dispatch plan says so. Once a release has put the platform on the mirrors, move it to `targets`.
 
 ## Saved packages
 
@@ -112,7 +119,7 @@ Pull request builds save nothing.
 
 | Path | What it holds |
 | --- | --- |
-| `foundry.yaml` | The OS matrix and the supported MariaDB versions |
+| `foundry.yaml` | All Foundry settings: repository, sources, OS matrix, MariaDB versions, access |
 | `builders.py` | Turns that config into builders and schedulers |
 | `sources.py` | The three package-source choices and their property names |
 | `../../sequences/foundry/` | Step sequences: `autobake.py` (deb/rpm/bintar), `dispatcher.py` |

@@ -3,7 +3,7 @@ from buildbot.plugins import schedulers, util
 import configuration.builders.definitions.foundry.builders as foundry_builders
 from configuration.builders.definitions.foundry import sources
 
-FOUNDRY_REPO_URL = "https://github.com/MariaDB/foundry"
+_REPOSITORY = foundry_builders.FOUNDRY_REPOSITORY
 
 
 def _server_source_parameters():
@@ -48,11 +48,15 @@ FOUNDRY_FORCE_SCHEDULERS.append(
         # No plugin picker: the dispatcher clones Foundry and discovers what
         # to build, so a plugin added there needs no change here.
         properties=[
-            # Left empty, the run builds the tip of main. A full SHA is
-            # required: GitHub doesn't serve fetches by abbreviated hash.
+            # Left empty, the run builds the tip of the repository's branch.
+            # A full SHA is required: GitHub doesn't serve fetches by
+            # abbreviated hash.
             util.StringParameter(
                 name="foundry_commit",
-                label="Foundry commit (full SHA, empty for the tip of main)",
+                label=(
+                    "Foundry commit (full SHA, empty for the tip of "
+                    f"{_REPOSITORY['branch']})"
+                ),
                 default="",
                 regex=r"^([0-9a-f]{40})?$",
             )
@@ -61,12 +65,14 @@ FOUNDRY_FORCE_SCHEDULERS.append(
         codebases=[
             util.CodebaseParameter(
                 codebase="",
-                branch=util.FixedParameter(name="branch", default="main"),
+                branch=util.FixedParameter(name="branch", default=_REPOSITORY["branch"]),
                 revision=util.FixedParameter(name="revision", default=""),
                 repository=util.FixedParameter(
-                    name="repository", default=FOUNDRY_REPO_URL
+                    name="repository", default=_REPOSITORY["url"]
                 ),
-                project=util.FixedParameter(name="project", default="MariaDB/foundry"),
+                project=util.FixedParameter(
+                    name="project", default=_REPOSITORY["project"]
+                ),
             )
         ],
     )
@@ -107,7 +113,7 @@ FOUNDRY_CHANGE_SCHEDULERS = [
         builderNames=[foundry_builders.DISPATCHER_BUILDER.name],
         treeStableTimer=60,
         change_filter=util.ChangeFilter(
-            repository=FOUNDRY_REPO_URL,
+            repository=_REPOSITORY["url"],
             category="pull",
         ),
     )
