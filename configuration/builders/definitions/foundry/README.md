@@ -29,7 +29,9 @@ Bintar targets (centos7, almalinux8) have no `-devel` packages to install agains
 
 ### Force build
 
-For each supported MariaDB version the force scheduler asks where the server packages should come from:
+The force scheduler takes an optional **Foundry commit** (a full SHA). Left empty, the run builds the tip of `main`.
+
+For each supported MariaDB version the force scheduler also asks where the server packages should come from:
 
 - **Use MariaDB Server mirrors** — the default; released packages from `mirror.mariadb.org`.
 - **Use a ci.mariadb.org tarball** — build against a specific `tarbuildnum`, for testing against an unreleased server.

@@ -90,12 +90,13 @@ def clone_foundry_step(config: DockerConfig, depth: int = 1):
     # only ever build a single checked-out tree, so they keep depth=1.
     return InContainer(
         ShellStep(
-            # revision is always empty on foundry_force_scheduler, so fetch
-            # the branch tip instead of a pinned commit. For a pull request
-            # the branch is the PR's own refs/pull/<n>/head ref.
+            # foundry_commit is only ever set by foundry_force_scheduler (and
+            # handed on by the dispatcher); without it, fetch the branch tip.
+            # For a pull request the branch is the PR's own
+            # refs/pull/<n>/head ref.
             command=GitInitFromCommit(
                 repo_url="%(prop:repository)s",
-                commit="%(prop:branch)s",
+                commit="%(prop:foundry_commit:~%(prop:branch)s)s",
                 depth=depth,
             ),
         ),
@@ -104,10 +105,10 @@ def clone_foundry_step(config: DockerConfig, depth: int = 1):
 
 
 def _capture_foundry_revision_step(config: DockerConfig):
-    # foundry_force_scheduler never gives us a concrete revision (see
-    # clone_foundry_step), so read back the commit that actually got
-    # checked out -- needed to tell apart saved packages built from
-    # different foundry/plugin source revisions.
+    # clone_foundry_step may have fetched a branch tip rather than a pinned
+    # commit, so read back the commit that actually got checked out --
+    # needed to tell apart saved packages built from different
+    # foundry/plugin source revisions.
     return InContainer(
         PropFromShellStep(
             command=BashCommand(cmd="git rev-parse --short HEAD"),

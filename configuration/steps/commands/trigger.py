@@ -173,6 +173,9 @@ class _FoundryDispatchStep(BuildbotTrigger):
                 "mariadb_version": version,
                 "foundry_plugins": plugins,
                 "is_pull_request": is_pull_request,
+                # Triggered builds don't inherit this build's properties, so
+                # pass the forced commit on for the package builders to clone.
+                "foundry_commit": self.getProperty("foundry_commit", ""),
             }
             if source == sources.CI_TARBALL:
                 # The package builders branch on tarbuildnum alone: set means
