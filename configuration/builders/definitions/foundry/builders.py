@@ -38,16 +38,18 @@ _ARCH_PLATFORM = {"x86": "linux/386"}
 
 
 FOUNDRY_BUILDERS_BY_ARCH = {}
-# Builders grouped by (ops, os version), regardless of arch.
+# Builders grouped by server_builder (the package), regardless of arch.
 FOUNDRY_BUILDERS_BY_PACKAGE = {}
 for package_config in _FOUNDRY_CONFIG["packages"]:
-    ops = package_config["ops"]
-    version = package_config["version"]
-    package = f"{ops}-{version}"
+    package = package_config["server_builder"]
     package_type = package_config["type"]
     for arch in package_config["arch"]:
-        image = f"{ops}{version}{_ARCH_IMAGE_SUFFIX.get(arch, '')}"
+        image = f"{package_config['image']}{_ARCH_IMAGE_SUFFIX.get(arch, '')}"
         platform = _ARCH_PLATFORM.get(arch)
+        # The MariaDB server builder this one mirrors, e.g.
+        # "amd64-debian-12-deb-autobake" -- see BUILDERS_AUTOBAKE in
+        # constants.py.
+        server_builder = f"{arch}-{package}"
         if package_type == "bintar":
             # Bintar builds link against a MariaDB server bintar (see
             # autobake.bintar) instead of installing -devel packages from an
@@ -56,19 +58,14 @@ for package_config in _FOUNDRY_CONFIG["packages"]:
             # same tarball for every builder, see DownloadServerBintarFromMirror.
             sequence = autobake.bintar(
                 docker_config(image=image, platform=platform),
-                package_config["ci_bintar_builder"],
+                server_builder,
             )
         else:
             sequence_fn = _SEQUENCE_BY_PACKAGE_TYPE[package_type]
             repo_file = _REPO_FILE_BY_PACKAGE_TYPE[package_type]
-            # Server autobake builder that publishes
-            # MariaDB-devel/libmariadb-dev for this platform, e.g.
-            # "amd64-debian-12-deb-autobake" -- see BUILDERS_AUTOBAKE in
-            # constants.py.
-            autobake_builder = (
-                f"{arch}-{package_config['os_info_key']}-{package_type}-autobake"
-            )
-            repo_file_url = f"{_DEVEL_REPO_ARTIFACTS_URL}/%(prop:tarbuildnum)s/{autobake_builder}/{repo_file}"
+            # The server builder publishes MariaDB-devel/libmariadb-dev for
+            # this platform.
+            repo_file_url = f"{_DEVEL_REPO_ARTIFACTS_URL}/%(prop:tarbuildnum)s/{server_builder}/{repo_file}"
             # Both repo sources are wired into every package builder; which
             # one runs is decided per build from the tarbuildnum property.
             sequence = sequence_fn(
@@ -77,7 +74,7 @@ for package_config in _FOUNDRY_CONFIG["packages"]:
                 _MIRROR_REPO_URL_BY_PACKAGE_TYPE[package_type],
             )
         builder = GenericBuilder(
-            name=f"foundry-{arch}-{ops}-{version}",
+            name=f"foundry-{server_builder}",
             sequences=[sequence],
         )
         FOUNDRY_BUILDERS_BY_ARCH.setdefault(arch, []).append(builder)
