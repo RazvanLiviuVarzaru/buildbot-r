@@ -22,6 +22,7 @@ Currently 16 OS targets across 3 architectures (amd64, aarch64, x86) make 28 bui
 1. **Discover** — the dispatcher clones Foundry and reads the plugin list out of it: all plugins, or just the ones a pull request touches.
 1. **Fan out** — one `Triggerable` per supported MariaDB version, carrying the plugin list and the chosen package source.
 1. **Build and test** — per OS and architecture, in that target's own container.
+1. **Report** — the dispatcher waits for every package build and fails if any of them does. On a pull request, its result is posted to GitHub as the `buildbot/foundry-trigger-builders` status.
 
 Bintar targets (centos7, almalinux8) have no `-devel` packages to install against, so they link the plugin against an unpacked MariaDB server tarball and run that tarball's bundled MTR instead of installing system packages.
 

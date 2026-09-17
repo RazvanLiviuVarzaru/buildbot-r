@@ -236,7 +236,13 @@ class FoundryDispatch:
                     if spec["ci_only_scheduler"]
                 }
             ),
-            waitForFinish=False,
+            # Wait for the package builds and take the worst of their
+            # results, so the dispatcher build -- and the GitHub status it
+            # reports on pull requests -- fails if any of them does. The
+            # waiting build holds one job on its worker, and since a worker
+            # runs one build per builder, the next Foundry run queues until
+            # this one's package builds are done.
+            waitForFinish=True,
             updateSourceStamp=False,
         )
 
