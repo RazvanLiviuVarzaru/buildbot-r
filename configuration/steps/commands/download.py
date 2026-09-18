@@ -58,8 +58,25 @@ class GitInitFromCommit(Command):
     def as_cmd_arg(self) -> list[str]:
         if self.depth != 0:
             depth = "--depth " + str(self.depth)
+            # "git submodule update" only learned --depth in git 1.8.4, and
+            # Foundry's centos7-bintar image still ships git 1.8.3.1, where the
+            # flag aborts the step. Gate it on the worker's git version rather
+            # than on the image name, so any other old-git image is covered
+            # too: without --depth the submodules are cloned in full, which is
+            # a slower checkout, not a broken one.
+            #
+            # "sort -VC" succeeds only when its input is already in version
+            # order, i.e. when 1.8.4 <= the installed version. Kept as an if
+            # rather than "test || sub_depth=" because a bare || in this &&
+            # chain would also swallow a failure of any command before it.
+            set_sub_depth = (
+                "if printf '1.8.4\\n%s\\n' "
+                "\"$(git --version | awk '{print $3}')\" | sort -VC; "
+                f"then sub_depth='{depth}'; else sub_depth=''; fi && "
+            )
         else:
             depth = ""
+            set_sub_depth = "sub_depth='' && "
         # Only the network-facing commands need it; the flags reach the
         # submodule clones too, via GIT_CONFIG_PARAMETERS.
         auth = git_auth_args()
@@ -72,7 +89,9 @@ class GitInitFromCommit(Command):
                     f"git remote add origin {self.repo_url} && "
                     f"git {auth} fetch {depth} origin {self.commit} && "
                     "git checkout FETCH_HEAD && "
-                    f"git {auth} submodule update --init --recursive {depth} --jobs={self.jobs}"
+                    f"{set_sub_depth}"
+                    f"git {auth} submodule update --init --recursive "
+                    f"$sub_depth --jobs={self.jobs}"
                 )
             ),
         ]
