@@ -34,6 +34,7 @@ from configuration.steps.commands.packages import (
     SetupRPMRepoFromURL,
 )
 from configuration.steps.remote import PropFromShellStep, ShellStep
+from git_auth import git_auth_env_vars
 
 _MARIADB_VERSION_ENV = [("MARIADB_VERSION", "%(prop:mariadb_version)s")]
 
@@ -100,6 +101,12 @@ def clone_foundry_step(config: DockerConfig, depth: int = 1):
                 commit="%(prop:foundry_commit:~%(prop:branch)s)s",
                 depth=depth,
             ),
+            # Foundry lives on github.com, which answers anonymous clones
+            # with a 401. GitInitFromCommit already splices the credential
+            # helper's "git -c" flags into the command line; this is the
+            # other half -- the PAT itself, reaching git through the
+            # environment only. See git_auth.py.
+            secret_env_vars=git_auth_env_vars(),
         ),
         docker_environment=config,
     )
