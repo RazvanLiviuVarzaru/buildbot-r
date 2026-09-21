@@ -84,6 +84,17 @@ for package_type, type_config, package, package_config in _TARGETS:
             # one runs is decided per build from the tarbuildnum property.
             # The server builder publishes the CI repo file; the mirrors
             # publish one repo directory per MariaDB version.
+            #
+            # galera-4 is a MariaDB-server dependency that the CI repo does
+            # not carry, so the CI branch needs the galera repo too. CI
+            # publishes one repo file per platform, named after the server
+            # builder without its "-<type>-autobake" suffix and pointing at
+            # the newest galera 4.x build for it -- the same file
+            # bash_lib.sh's {rpm,deb}_setup_bb_galera_artifacts_mirror
+            # installs. The mirrors ship galera themselves, so that branch
+            # has no equivalent.
+            galera_platform = server_builder.removesuffix(f"-{package_type}-autobake")
+            galera_file_suffix = "repo" if package_type == "rpm" else "sources"
             sequence = _SEQUENCE_BY_PACKAGE_TYPE[package_type](
                 container_config,
                 base_config=_base_image_config(package_config, arch_override),
@@ -94,6 +105,10 @@ for package_type, type_config, package, package_config in _TARGETS:
                 mirror_repo_url=(
                     f"{_MIRROR_URL}/{type_config['mirror_path']}"
                     "/%(prop:mariadb_version)s"
+                ),
+                galera_repo_url=(
+                    f"{_CI_URL}/galera/mariadb-4.x-latest-gal-"
+                    f"{galera_platform}.{galera_file_suffix}"
                 ),
                 build_packages=type_config["build_packages"],
                 test_packages=type_config["test_packages"],

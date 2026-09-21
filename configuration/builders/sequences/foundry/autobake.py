@@ -202,12 +202,17 @@ _PACKAGE_COMMANDS = {
     "RPM": (SetupRPMRepoFromURL, SetupRPMRepo, InstallRPMPackages),
 }
 
+# Where each family's galera repo file goes, next to the server repo file the
+# CI step installs. See _server_repo_steps.
+_GALERA_REPO_FILE = {"DEB": "galera.sources", "RPM": "galera.repo"}
+
 
 def _server_repo_steps(
     package_type: str,
     config: DockerConfig,
     repo_file_url: str,
     mirror_repo_url: str,
+    galera_repo_url: str,
     where: str,
 ):
     # "where" is the image the repo is added to, "worker" or "base" -- see
@@ -220,8 +225,18 @@ def _server_repo_steps(
     return [
         InContainer(
             ShellStep(
+                # The CI repo carries the server build on its own, but
+                # MariaDB-server requires galera-4 and the CI repo has no
+                # copy of it, so installing anything that pulls the server
+                # in -- the plugin packages, MariaDB-server itself -- fails
+                # with "nothing provides galera-4". The mirrors ship galera
+                # alongside the server, which is why only this branch needs
+                # it. Same pair of repos rpm-install.sh sets up, and from
+                # the same CI, so the galera build matches the server's.
                 command=setup_from_url(
-                    repo_file_url, name=f"Add server CI repo ({where})"
+                    repo_file_url,
+                    name=f"Add server CI repo ({where})",
+                    extra_repos={_GALERA_REPO_FILE[package_type]: galera_repo_url},
                 ),
                 options=StepOptions(doStepIf=_uses_ci_tarball),
             ),
@@ -249,6 +264,7 @@ def _packages(
     base_config: DockerConfig,
     repo_file_url: str,
     mirror_repo_url: str,
+    galera_repo_url: str,
     build_packages: list[str],
     test_packages: list[str],
 ):
@@ -265,7 +281,7 @@ def _packages(
     sequence.add_step(clone_foundry_step(config))
     sequence.add_step(_capture_foundry_revision_step(config))
     for step in _server_repo_steps(
-        package_type, config, repo_file_url, mirror_repo_url, "worker"
+        package_type, config, repo_file_url, mirror_repo_url, galera_repo_url, "worker"
     ):
         sequence.add_step(step)
     sequence.add_step(
@@ -292,7 +308,12 @@ def _packages(
         )
     )
     for step in _server_repo_steps(
-        package_type, base_config, repo_file_url, mirror_repo_url, "base"
+        package_type,
+        base_config,
+        repo_file_url,
+        mirror_repo_url,
+        galera_repo_url,
+        "base",
     ):
         sequence.add_step(step)
     sequence.add_step(

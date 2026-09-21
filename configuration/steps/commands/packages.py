@@ -398,8 +398,22 @@ fi
 class SetupRPMRepoFromURL(Command):
     # Unlike SetupRPMRepo, installs an existing, unsigned MariaDB.repo published
     # by a CI build as-is, instead of constructing a repo definition from scratch.
-    def __init__(self, repo_file_url: str, name: str = "Install MariaDB CI repo"):
+    #
+    # extra_repos: {filename: url} for further repo files to drop in alongside
+    # it, written verbatim. A CI server build's packages depend on other
+    # artifacts of the same CI run -- galera-4, which MariaDB-server requires
+    # and which no other repo carries a matching build of -- and those repo
+    # files have to land in the same step: each InContainer step is a fresh
+    # "docker run", so anything written outside the /home/buildbot volume
+    # survives only through this step's container_commit.
+    def __init__(
+        self,
+        repo_file_url: str,
+        name: str = "Install MariaDB CI repo",
+        extra_repos: dict = None,
+    ):
         self.repo_file_url = repo_file_url
+        self.extra_repos = dict(extra_repos or {})
         super().__init__(
             name=name,
             workdir=PurePath("."),
@@ -407,6 +421,13 @@ class SetupRPMRepoFromURL(Command):
         )
 
     def as_cmd_arg(self) -> list[str]:
+        # No module_hotfixes on the extras: these are plain unsigned repos,
+        # and bash_lib.sh's rpm_setup_bb_galera_artifacts_mirror installs the
+        # same file as-is.
+        extras = "".join(
+            f'curl -fsSL {url} -o "$repo_dir/{filename}"\n'
+            for filename, url in self.extra_repos.items()
+        )
         return [
             "bash",
             "-exc",
@@ -422,7 +443,7 @@ fi
 mkdir -p "$repo_dir"
 curl -fsSL {self.repo_file_url} -o "$repo_dir/MariaDB.repo"
 echo "module_hotfixes = 1" >> "$repo_dir/MariaDB.repo"
-
+{extras}
 if command -v dnf >/dev/null 2>&1; then
     dnf makecache
 elif command -v zypper >/dev/null 2>&1; then
@@ -438,10 +459,17 @@ fi
 class SetupDEBRepoFromURL(Command):
     # Unlike SetupDEBRepo, installs an existing, unsigned mariadb.sources file
     # published by a CI build as-is, instead of constructing one from scratch.
+    #
+    # extra_repos: see SetupRPMRepoFromURL -- same reason, same shape, only the
+    # destination directory differs.
     def __init__(
-        self, sources_file_url: str, name: str = "Install MariaDB CI repo"
+        self,
+        sources_file_url: str,
+        name: str = "Install MariaDB CI repo",
+        extra_repos: dict = None,
     ):
         self.sources_file_url = sources_file_url
+        self.extra_repos = dict(extra_repos or {})
         super().__init__(
             name=name,
             workdir=PurePath("."),
@@ -449,6 +477,10 @@ class SetupDEBRepoFromURL(Command):
         )
 
     def as_cmd_arg(self) -> list[str]:
+        extras = "".join(
+            f"curl -fsSL {url} -o /etc/apt/sources.list.d/{filename}\n"
+            for filename, url in self.extra_repos.items()
+        )
         return [
             "bash",
             "-exc",
@@ -456,7 +488,7 @@ class SetupDEBRepoFromURL(Command):
                 f"""
 set -euo pipefail
 curl -fsSL {self.sources_file_url} -o /etc/apt/sources.list.d/mariadb.sources
-{_DISABLE_EOL_DEBIAN_SECURITY_REPO}
+{extras}{_DISABLE_EOL_DEBIAN_SECURITY_REPO}
 apt-get update
 """
             ),
