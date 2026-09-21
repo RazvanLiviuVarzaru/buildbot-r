@@ -305,6 +305,13 @@ class PrepareBaseImage(Command):
     #     purpose). --non-unique: some bases already have a uid 1000 user.
     #   - apt bases: ca-certificates and curl, to fetch the https repos.
     #   - zypper bases: findutils, for saving MTR logs on failure.
+    #   - ps, the one exception to "nothing the packages might depend on":
+    #     wsrep_sst_rsync runs "ps -p" to check the transfer process is
+    #     alive, but no MariaDB package requires procps-ng/procps. Without
+    #     it the joiner's wait loop never exits, SST never reports "ready",
+    #     and a galera test hangs until MTR's 180s startup timeout. Only
+    #     Ubuntu ships it; centos, ubi, bci and debian bases do not. Drop
+    #     this once MariaDB declares the dependency.
     WORKER_UID = 1000
 
     def __init__(self, workdir: PurePath = PurePath(".")):
@@ -321,9 +328,13 @@ id -u buildbot >/dev/null 2>&1 || useradd --non-unique --uid {self.WORKER_UID} \
 if command -v apt-get >/dev/null 2>&1; then
     export DEBIAN_FRONTEND=noninteractive
     apt-get update
-    apt-get install -y --no-install-recommends ca-certificates curl
+    apt-get install -y --no-install-recommends ca-certificates curl procps
 elif command -v zypper >/dev/null 2>&1; then
-    zypper --non-interactive install findutils
+    zypper --non-interactive install findutils procps
+elif command -v dnf >/dev/null 2>&1; then
+    dnf install -y procps-ng
+elif command -v yum >/dev/null 2>&1; then
+    yum install -y procps-ng
 fi
 """,
         ]
