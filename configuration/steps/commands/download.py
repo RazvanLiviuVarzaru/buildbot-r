@@ -69,9 +69,15 @@ class GitInitFromCommit(Command):
             # order, i.e. when 1.8.4 <= the installed version. Kept as an if
             # rather than "test || sub_depth=" because a bare || in this &&
             # chain would also swallow a failure of any command before it.
+            #
+            # The two versions are echoed rather than printf'd because the
+            # whole command is wrapped in util.Interpolate, which reads "%"
+            # as its own substitution syntax: a literal "%s" raises
+            # "not enough arguments for format string" while parsing the
+            # master config.
             set_sub_depth = (
-                "if printf '1.8.4\\n%s\\n' "
-                "\"$(git --version | awk '{print $3}')\" | sort -VC; "
+                "if { echo 1.8.4; git --version | awk '{print $3}'; } "
+                "| sort -VC; "
                 f"then sub_depth='{depth}'; else sub_depth=''; fi && "
             )
         else:
