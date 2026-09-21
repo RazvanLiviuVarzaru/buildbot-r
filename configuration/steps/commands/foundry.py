@@ -553,9 +553,11 @@ class ExtractPluginBintarIntoServerBintar(Command):
     # CPack config chose.
     def __init__(self, server_bintar_dir: str, workdir: PurePath = PurePath(".")):
         self.server_bintar_dir = server_bintar_dir
-        super().__init__(
-            name="Extract plugin bintar into server bintar", workdir=workdir
-        )
+        # Not "... into server bintar": this command is used through
+        # PropFromShellStep, which prefixes "Set plugin_suites from " to the
+        # step name, and buildbot stores step names in a VARCHAR(50) -- an
+        # overflow fails the INSERT mid-build rather than at config time.
+        super().__init__(name="Extract plugin bintar", workdir=workdir)
 
     def as_cmd_arg(self) -> list[str]:
         return [

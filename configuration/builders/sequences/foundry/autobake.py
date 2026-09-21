@@ -210,12 +210,18 @@ def _server_repo_steps(
     mirror_repo_url: str,
     where: str,
 ):
+    # "where" is the image the repo is added to, "worker" or "base" -- see
+    # the comment in _packages(). Kept to one word, and the names below
+    # kept terse, because both steps are checkpointed: that generates a
+    # second step named "Checkpoint <name>", and buildbot stores step names
+    # in a VARCHAR(50). Overflowing it fails the INSERT mid-build, not at
+    # config time, so the budget here is 39 characters.
     setup_from_url, setup_mirror, _ = _PACKAGE_COMMANDS[package_type]
     return [
         InContainer(
             ShellStep(
                 command=setup_from_url(
-                    repo_file_url, name=f"Install MariaDB CI repo ({where})"
+                    repo_file_url, name=f"Add server CI repo ({where})"
                 ),
                 options=StepOptions(doStepIf=_uses_ci_tarball),
             ),
@@ -227,7 +233,7 @@ def _server_repo_steps(
                 command=setup_mirror(
                     repo_name="mariadb",
                     repo_url=mirror_repo_url,
-                    name=f"Install MariaDB Server mirror repo ({where})",
+                    name=f"Add server mirror repo ({where})",
                 ),
                 options=StepOptions(doStepIf=_uses_mirror),
             ),
@@ -259,7 +265,7 @@ def _packages(
     sequence.add_step(clone_foundry_step(config))
     sequence.add_step(_capture_foundry_revision_step(config))
     for step in _server_repo_steps(
-        package_type, config, repo_file_url, mirror_repo_url, "worker image"
+        package_type, config, repo_file_url, mirror_repo_url, "worker"
     ):
         sequence.add_step(step)
     sequence.add_step(
@@ -286,7 +292,7 @@ def _packages(
         )
     )
     for step in _server_repo_steps(
-        package_type, base_config, repo_file_url, mirror_repo_url, "base image"
+        package_type, base_config, repo_file_url, mirror_repo_url, "base"
     ):
         sequence.add_step(step)
     sequence.add_step(
