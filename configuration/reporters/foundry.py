@@ -2,14 +2,8 @@ from buildbot.plugins import reporters
 
 
 class FoundryPullRequestStatusPush(reporters.GitHubStatusPush):
-    # The stock GitHub reporter, narrowed to pull request builds: this
-    # buildbot's reporters can only filter by builder name, and the
-    # dispatcher also runs force builds, whose sourcestamp has no revision
-    # to report on. A pull request's sourcestamp carries the PR head SHA and
-    # "MariaDB/foundry" as project, set by the GitHub hook.
-    #
-    # Its own name, since every master already has a GitHubStatusPush (see
-    # master_common.py) and service names must be unique.
+    # GitHubStatusPush for pull request builds only: force builds have no
+    # revision to report on. Named, as every master has a GitHubStatusPush.
     name = "FoundryPullRequestStatusPush"
 
     def filterBuilds(self, build):

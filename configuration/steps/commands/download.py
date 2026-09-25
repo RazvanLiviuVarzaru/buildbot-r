@@ -58,23 +58,10 @@ class GitInitFromCommit(Command):
     def as_cmd_arg(self) -> list[str]:
         if self.depth != 0:
             depth = "--depth " + str(self.depth)
-            # "git submodule update" only learned --depth in git 1.8.4, and
-            # Foundry's centos7-bintar image still ships git 1.8.3.1, where the
-            # flag aborts the step. Gate it on the worker's git version rather
-            # than on the image name, so any other old-git image is covered
-            # too: without --depth the submodules are cloned in full, which is
-            # a slower checkout, not a broken one.
-            #
-            # "sort -VC" succeeds only when its input is already in version
-            # order, i.e. when 1.8.4 <= the installed version. Kept as an if
-            # rather than "test || sub_depth=" because a bare || in this &&
-            # chain would also swallow a failure of any command before it.
-            #
-            # The two versions are echoed rather than printf'd because the
-            # whole command is wrapped in util.Interpolate, which reads "%"
-            # as its own substitution syntax: a literal "%s" raises
-            # "not enough arguments for format string" while parsing the
-            # master config.
+            # git < 1.8.4 (e.g. CentOS 7's) aborts on "submodule update
+            # --depth"; there, submodules are cloned in full instead. "sort
+            # -VC" succeeds if 1.8.4 <= the installed git. echo, not printf:
+            # Interpolate would read printf's "%s".
             set_sub_depth = (
                 "if { echo 1.8.4; git --version | awk '{print $3}'; } "
                 "| sort -VC; "

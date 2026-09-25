@@ -7,10 +7,8 @@ _REPOSITORY = foundry_builders.FOUNDRY_REPOSITORY
 
 
 def _server_source_parameters():
-    # Two fields per supported MariaDB version (see foundry.yaml): where its
-    # MariaDB server packages come from, and -- only read when that says
-    # sources.CI_TARBALL -- which ci.mariadb.org build to take them from.
-    # Left alone, a version builds against the MariaDB Server mirrors.
+    # Per MariaDB version: where its server packages come from, and the
+    # tarbuildnum for sources.CI_TARBALL.
     parameters = []
     for version in foundry_builders.FOUNDRY_MARIADB_VERSIONS:
         parameters.append(
@@ -24,8 +22,7 @@ def _server_source_parameters():
         parameters.append(
             util.StringParameter(
                 name=sources.tarbuildnum_property(version),
-                # Kept free of angle brackets and quotes -- buildbot renders
-                # parameter labels into the force dialog as HTML.
+                # No angle brackets or quotes: labels are rendered as HTML.
                 label=(
                     f"MariaDB {version}: ci.mariadb.org tarbuildnum "
                     "(required by, and only used by, the tarball option above)"
@@ -37,20 +34,13 @@ def _server_source_parameters():
     return parameters
 
 
-# Force build entry point for the dispatcher. Must be loaded on whichever
-# master serves the www UI, since ForceScheduler availability is resolved
-# per-process (master.allSchedulers()), not shared via the DB.
-FOUNDRY_FORCE_SCHEDULERS = []
-FOUNDRY_FORCE_SCHEDULERS.append(
+# Loaded on the master serving the UI: force schedulers are per process.
+FOUNDRY_FORCE_SCHEDULERS = [
     schedulers.ForceScheduler(
         name="foundry_force_scheduler",
         builderNames=[foundry_builders.DISPATCHER_BUILDER.name],
-        # No plugin picker: the dispatcher clones Foundry and discovers what
-        # to build, so a plugin added there needs no change here.
         properties=[
-            # Left empty, the run builds the tip of the repository's branch.
-            # A full SHA is required: GitHub doesn't serve fetches by
-            # abbreviated hash.
+            # Full SHA only: GitHub doesn't fetch by abbreviated hash.
             util.StringParameter(
                 name="foundry_commit",
                 label=(
@@ -65,7 +55,9 @@ FOUNDRY_FORCE_SCHEDULERS.append(
         codebases=[
             util.CodebaseParameter(
                 codebase="",
-                branch=util.FixedParameter(name="branch", default=_REPOSITORY["branch"]),
+                branch=util.FixedParameter(
+                    name="branch", default=_REPOSITORY["branch"]
+                ),
                 revision=util.FixedParameter(name="revision", default=""),
                 repository=util.FixedParameter(
                     name="repository", default=_REPOSITORY["url"]
@@ -76,11 +68,10 @@ FOUNDRY_FORCE_SCHEDULERS.append(
             )
         ],
     )
-)
+]
 
-# Role allowed to force the dispatcher, the only place a run's inputs
-# (package sources, tarbuildnum) are chosen. GitHubAuth (API v3) doesn't
-# report team membership, so the role goes to the users listed in foundry.yaml.
+# Who may force the dispatcher, by username: GitHubAuth (API v3) doesn't
+# report team membership.
 FOUNDRY_FORCE_ROLE = "foundry-force"
 FOUNDRY_ROLE_MATCHERS = [
     util.RolesFromUsername(
@@ -88,9 +79,7 @@ FOUNDRY_ROLE_MATCHERS = [
     )
 ]
 
-# Loaded by master-web ahead of its organisation-wide control rule, which
-# still covers everything else. Rebuild stays open: it reuses the original
-# build's properties.
+# Put before master-web's organisation-wide rule. Rebuild stays open.
 FOUNDRY_AUTHZ_RULES = [
     util.ForceBuildEndpointMatcher(
         builder=foundry_builders.DISPATCHER_BUILDER.name,
@@ -99,14 +88,8 @@ FOUNDRY_AUTHZ_RULES = [
     )
 ]
 
-# Pull requests against Foundry itself, and nothing else: category "pull" is
-# what buildbot's GitHub hook (www/hooks/github.py) stamps on pull request
-# events, so push events on the same repository don't match. The dispatcher
-# takes it from there -- it builds only the plugins the PR touches, always
-# against the MariaDB Server mirrors, and saves no packages.
-#
-# Lives with the force scheduler rather than next to the Triggerables: this
-# is an entry point, and it belongs on the master that receives the webhook.
+# Pull requests on Foundry: the GitHub hook sets category "pull" on those,
+# not on pushes. Loaded on the master receiving the webhook.
 FOUNDRY_CHANGE_SCHEDULERS = [
     schedulers.AnyBranchScheduler(
         name="foundry_pull_request_scheduler",
@@ -119,15 +102,8 @@ FOUNDRY_CHANGE_SCHEDULERS = [
     )
 ]
 
-# One Triggerable per supported MariaDB version, holding the builders that
-# version runs -- see FOUNDRY_TRIGGERABLE_BUILDERS in
-# configuration/builders/definitions/foundry/builders.py. The dispatcher
-# builder (foundry-trigger-builders) fires one per version, setting
-# mariadb_version, foundry_plugins and (on the CI side) tarbuildnum, via
-# getSchedulersAndProperties in configuration/steps/commands/trigger.py.
-# Must be loaded on whichever master executes the dispatcher build (i.e. the
-# master owning its workers), since Trigger steps look schedulers up on
-# their own process (master.scheduler_manager.namedServices).
+# The dispatcher's Triggerables, one or two per MariaDB version. Loaded on
+# the master running the dispatcher: Trigger looks schedulers up in-process.
 FOUNDRY_TRIGGERABLE_SCHEDULERS = [
     schedulers.Triggerable(name=scheduler_name, builderNames=builder_names)
     for scheduler_name, builder_names in foundry_builders.FOUNDRY_TRIGGERABLE_BUILDERS.items()

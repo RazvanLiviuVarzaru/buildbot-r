@@ -1,7 +1,4 @@
-"""The Foundry build step's result comes from the summary run.cmake prints at
-the end of a run, not from cmake's exit code. These tests pin how that
-summary is read and what each outcome maps to.
-"""
+"""How the Foundry build step reads run.cmake's summary."""
 
 import unittest
 
@@ -25,8 +22,7 @@ _OUTPUT = """\
 
 
 def _summary(output: str) -> FoundrySummary:
-    # Split on "\n" only, as buildbot's LogLineObserver does, so a stray "\r"
-    # still reaches feed().
+    # Split on "\n" only, like LogLineObserver, so a "\r" reaches feed().
     summary = FoundrySummary()
     for line in output.split("\n"):
         summary.feed(line)
@@ -63,7 +59,7 @@ class TestFoundrySummary(unittest.TestCase):
         )
 
     def test_some_plugins_built(self):
-        """A warning, which flunkOnWarnings turns into a failed build."""
+        """A warning; flunkOnWarnings fails the build."""
         result, built, failures, description = _summary(_OUTPUT).evaluate(
             ["tidesql", "broken", "empty"], command_ok=False
         )
@@ -92,7 +88,7 @@ class TestFoundrySummary(unittest.TestCase):
         )
 
     def test_no_summary(self):
-        """run.cmake stopped early, or never ran: nothing can be trusted."""
+        """run.cmake stopped early or never ran."""
         summary = _summary("-- Building a\nCMake Error: something\n")
         result, built, failures, description = summary.evaluate(["a"], command_ok=False)
         self.assertEqual(result, FAILURE)
@@ -101,7 +97,7 @@ class TestFoundrySummary(unittest.TestCase):
         self.assertEqual(description, "run.cmake printed no summary")
 
     def test_requested_plugin_missing_from_the_summary(self):
-        """run.cmake silently skips an argument that looks like a file name."""
+        """run.cmake silently skips names with a dot."""
         summary = _summary(
             "-- FOUNDRY-RESULT: PASS a a.rpm\n"
             "-- FOUNDRY-SUMMARY: 0 of 1 plugins failed\n"
@@ -122,7 +118,7 @@ class TestFoundrySummary(unittest.TestCase):
         self.assertEqual(description, "built 1 of 1 plugins, but cmake failed")
 
     def test_ignores_lines_that_only_mention_the_markers(self):
-        """bash -x echoes script lines, and plugins print their own "-- "."""
+        """bash -x traces, and plugins' own "-- " lines."""
         summary = _summary(
             "+ echo '-- FOUNDRY-RESULT: PASS fake fake.rpm'\n"
             "  -- FOUNDRY-RESULT: PASS indented x.rpm\n"

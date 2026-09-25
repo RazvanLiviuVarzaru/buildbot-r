@@ -96,8 +96,7 @@ class ConC(Trigger):
 
 
 class _FoundryDispatchStep(BuildbotTrigger):
-    # Rendered before getSchedulersAndProperties runs; merged with Trigger's
-    # own renderables, in both buildbot 2.x and 3.0+.
+    # Merged with Trigger's own renderables, in buildbot 2.x and 3.0+ alike.
     renderables = ["source_url"]
 
     def __init__(self, trigger_specs, source_url, **kwargs):
@@ -105,44 +104,28 @@ class _FoundryDispatchStep(BuildbotTrigger):
         self.source_url = source_url
         super().__init__(**kwargs)
 
-    # Buildbot's dynamic-trigger extension point: lets one step fan out to a
-    # different set of schedulers/properties per MariaDB version, instead of
-    # needing one static Trigger step per version. Everything that varies is
-    # read from this build's own properties (set by foundry_force_scheduler)
-    # -- self.trigger_specs isn't a renderable, it's plain config-time data
-    # naming the fields to look at and the Triggerable each answer maps to.
+    def _prop(self, name: str) -> str:
+        return str(self.getProperty(name, "") or "").strip()
+
+    # Fans out per MariaDB version, with properties read from this build: the
+    # force-scheduler choices named in trigger_specs, and what the earlier
+    # steps found.
     @defer.inlineCallbacks
     def getSchedulersAndProperties(self):
-        # Discovered by the preceding step from the Foundry checkout, not
-        # chosen by whoever started the build -- see DiscoverFoundryPlugins.
-        plugins = str(self.getProperty("foundry_plugins", "") or "").strip()
-        # A pull request build validates a proposed change: it doesn't get to
-        # pick a server source (the mirrors are the only sane one for an
-        # arbitrary contributor's branch) and it doesn't publish packages.
-        branch = str(self.getProperty("branch", "") or "")
+        plugins = self._prop("foundry_plugins")
+        branch = self._prop("branch")
+        # Pull requests always use the mirrors and save no packages.
         is_pull_request = branch.startswith("refs/pull/")
-        # The commit the preceding steps checked out and discovered the
-        # plugins in, and the archive of it every package build unpacks
-        # instead of cloning Foundry -- see trigger_foundry() in
-        # sequences/foundry/dispatcher.py. Triggered builds don't inherit
-        # this build's properties, so all of it is passed on explicitly.
-        commit = str(self.getProperty("foundry_head", "") or "").strip()
+        commit = self._prop("foundry_head")
+        # What the package builds need to get Foundry: see dispatcher.py.
         foundry_source = {
             "foundry_commit": commit,
-            # Short form, for the paths saved packages and logs go under.
-            "foundry_revision": str(
-                self.getProperty("foundry_revision", "") or ""
-            ).strip(),
+            "foundry_revision": self._prop("foundry_revision"),
             "foundry_source_url": self.source_url,
-            "foundry_source_sha256": str(
-                self.getProperty("foundry_source_sha256", "") or ""
-            ).strip(),
+            "foundry_source_sha256": self._prop("foundry_source_sha256"),
         }
         schedulers_and_properties = []
-        # Which versions ran against what is the whole point of this build,
-        # and a skipped version leaves no other trace -- so spell the
-        # outcome out rather than leaving it to be inferred from which
-        # child builds appeared.
+        # Spelled out in a log: a skipped version leaves no other trace.
         plan = []
         errors = []
 
@@ -150,9 +133,7 @@ class _FoundryDispatchStep(BuildbotTrigger):
         header = [f"event:   {event}", f"commit:  {commit or '(unknown)'} ({branch})"]
 
         if not plugins:
-            # Legitimate for a pull request that touches no plugin (docs, CI
-            # config, a plugin directory without a CMakeLists.txt): there is
-            # simply nothing to build, which is a pass, not a failure.
+            # E.g. a pull request touching no plugin: a pass, not a failure.
             yield self.addCompleteLog(
                 "dispatch plan",
                 "\n".join(header + ["No plugins to build -- nothing triggered"]) + "\n",
@@ -161,7 +142,6 @@ class _FoundryDispatchStep(BuildbotTrigger):
 
         missing = [name for name, value in foundry_source.items() if not value]
         if missing:
-            # The package builders have no other way to get Foundry.
             errors.append(
                 f"no Foundry source to hand on, missing: {', '.join(missing)}"
             )
@@ -173,13 +153,10 @@ class _FoundryDispatchStep(BuildbotTrigger):
                 tarbuildnum = ""
             else:
                 source = self.getProperty(spec["source_property"], sources.DEFAULT)
-                tarbuildnum = str(
-                    self.getProperty(spec["tarbuildnum_property"], "") or ""
-                ).strip()
+                tarbuildnum = self._prop(spec["tarbuildnum_property"])
 
             if source not in sources.CHOICES:
-                # Not reachable from the force dialog (the choice field is
-                # strict), but a rebuild can carry a hand-edited property.
+                # Only reachable through a hand-edited rebuild.
                 errors.append(
                     f"{version}: unknown package source {source!r} -- expected "
                     f"one of {', '.join(repr(c) for c in sources.CHOICES)}"
@@ -205,11 +182,8 @@ class _FoundryDispatchStep(BuildbotTrigger):
                 **foundry_source,
             }
             if source == sources.CI_TARBALL:
-                # The package builders branch on tarbuildnum alone: set means
-                # ci.mariadb.org, unset means the MariaDB Server mirrors (see
-                # autobake.py). Leave it out entirely for the mirror case
-                # rather than setting it empty, so an inherited property from
-                # a rebuild can't quietly resurrect the CI path.
+                # Set only for CI: the package builders take its absence to
+                # mean the mirrors.
                 properties["tarbuildnum"] = tarbuildnum
                 plan.append(f"{version}: https://ci.mariadb.org/{tarbuildnum}/")
             else:
@@ -217,8 +191,7 @@ class _FoundryDispatchStep(BuildbotTrigger):
 
             schedulers_and_properties.append((spec["scheduler"], properties))
             if spec["ci_only_targets"]:
-                # Platforms not on the mirrors yet: only a CI tarball has
-                # server packages for them.
+                # Not on the mirrors yet, so only built from a CI tarball.
                 ci_only = ", ".join(spec["ci_only_targets"])
                 if source == sources.CI_TARBALL:
                     schedulers_and_properties.append(
@@ -233,32 +206,25 @@ class _FoundryDispatchStep(BuildbotTrigger):
             lines += ["", "Nothing was triggered:", *errors]
         yield self.addCompleteLog("dispatch plan", "\n".join(lines) + "\n")
         if errors:
-            # BuildStepFailed carries no message into the build result, hence
-            # the log above -- raise only once it's been written, and before
-            # anything is triggered, so a bad field can't leave half the
-            # versions dispatched.
+            # Only after the log, as BuildStepFailed carries no message, and
+            # before anything is triggered.
             raise BuildStepFailed()
         return schedulers_and_properties
 
 
 class FoundryDispatch:
     def __init__(self, trigger_specs, source_url: str):
-        # trigger_specs: one dict per supported MariaDB version -- see
-        # _dispatch_specs() in
-        # configuration/builders/definitions/foundry/builders.py.
-        # source_url: where the package builders download the Foundry
-        # archive from, an Interpolate string.
+        # trigger_specs: see _dispatch_specs() in definitions/foundry/builders.py.
+        # source_url: the Foundry archive's URL, an Interpolate string.
         self.trigger_specs = trigger_specs
         self.source_url = source_url
 
     def generate(self):
-        # Trigger resolves scheduler names against this list, so it has to
-        # cover every Triggerable getSchedulersAndProperties may pick -- a
-        # given build only fires the ones whose version wasn't skipped.
         return _FoundryDispatchStep(
             trigger_specs=self.trigger_specs,
             source_url=Interpolate(self.source_url),
             name="Trigger Foundry Builders",
+            # Every Triggerable the step may pick.
             schedulerNames=sorted(
                 {spec["scheduler"] for spec in self.trigger_specs}
                 | {
@@ -267,12 +233,8 @@ class FoundryDispatch:
                     if spec["ci_only_scheduler"]
                 }
             ),
-            # Wait for the package builds and take the worst of their
-            # results, so the dispatcher build -- and the GitHub status it
-            # reports on pull requests -- fails if any of them does. The
-            # waiting build holds one job on its worker, and since a worker
-            # runs one build per builder, the next Foundry run queues until
-            # this one's package builds are done.
+            # Fail with any package build, so the pull request status does
+            # too. The waiting build holds a job, so the next run queues.
             waitForFinish=True,
             updateSourceStamp=False,
         )

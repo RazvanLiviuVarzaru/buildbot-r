@@ -1,74 +1,43 @@
 ---
-# Foundry CI configuration -- the one place to adjust the Foundry pipeline.
-# See README.md next to this file for how the pipeline works.
-#
-# Plugins are not listed here: the dispatcher discovers them in the Foundry
-# checkout (every top-level directory with a CMakeLists.txt).
+# Foundry CI settings; see README.md. Plugins aren't listed: the dispatcher
+# finds them in Foundry.
 
-# ---------------------------------------------------------------------------
-# Repository
-# ---------------------------------------------------------------------------
 repository:
   url: https://github.com/MariaDB/foundry
   project: MariaDB/foundry
   branch: main                        # built when Force is given no commit
 
-# ---------------------------------------------------------------------------
-# Access
-# ---------------------------------------------------------------------------
 access:
   force_users: []                     # GitHub usernames allowed to press Force
 
-# ---------------------------------------------------------------------------
-# Server packages
-#   Picked per MariaDB version on Force: mirrors (default), a CI tarbuildnum,
-#   or skip. Pull requests always use the mirrors.
-# ---------------------------------------------------------------------------
+# Where server packages come from: the mirrors (default) or a CI tarbuildnum,
+# picked per version on Force. Pull requests always use the mirrors.
 server:
   ci_url: https://ci.mariadb.org      # TEMPORARY: production CI while dev-only
   mirror_url: https://mirror.mariadb.org
 
-# ---------------------------------------------------------------------------
-# Dispatcher
-#   Clones Foundry, discovers plugins, triggers the package builders.
-# ---------------------------------------------------------------------------
+# Clones Foundry, finds the plugins, archives the commit, triggers the builds.
 dispatcher:
   builder: foundry-trigger-builders
   image: debian12                     # only needs git; runs on the amd64 pool
 
-# ---------------------------------------------------------------------------
-# Architectures
-#   Overrides for arches whose images aren't in the multi-arch manifests:
-#   image_suffix goes on the worker image tag, base_image_prefix replaces the
-#   base image's registry and namespace (Docker Hub's per-arch namespaces),
-#   so neither shares a local tag with the amd64 image on the same host.
-# ---------------------------------------------------------------------------
+# Arches missing from the multi-arch manifests: image_suffix goes on the
+# worker image tag, base_image_prefix replaces the base image's registry, so
+# neither shares a local tag with amd64.
 arch:
   x86: { image_suffix: "-386", base_image_prefix: docker.io/i386/, platform: linux/386 }
 
-# ---------------------------------------------------------------------------
-# RHEL subscription
-#   UBI base images reach the full RHEL repos only through the host's
-#   entitlement, mounted where UBI looks for it. RHEL targets must therefore
-#   run on RHEL hosts.
-# ---------------------------------------------------------------------------
+# UBI reaches the full RHEL repos only through the host's entitlement, so RHEL
+# targets must run on RHEL hosts.
 rhel_subscription: &rhel_subscription
   - [/etc/pki/entitlement, /run/secrets/etc-pki-entitlement]
   - [/etc/rhsm, /run/secrets/rhsm]
 
-# ---------------------------------------------------------------------------
-# Packages
-#   One section per package family. Each target is keyed by its MariaDB
-#   server builder name, minus the "<arch>-" prefix:
-#     builder       foundry-<arch>-<target>
-#     CI source     <ci_url>/<tarbuildnum>/<arch>-<target>/
-#     image         worker image tag on quay (image_tag in os_info.yaml)
-#   rpm and deb targets are built in that worker image, then installed and
-#   tested in base_image: the upstream image the worker image is built from,
-#   untouched, so the packages have to pull in every dependency themselves.
-#   base_mounts are extra host mounts for base_image. Bintars are built and
-#   tested in the worker image.
-# ---------------------------------------------------------------------------
+# Targets are named after their MariaDB server builder, minus "<arch>-":
+# builder foundry-<arch>-<target>, CI source <ci_url>/<tarbuildnum>/<arch>-<target>/.
+# image is the quay worker image tag. rpm/deb targets are built there, then
+# installed and tested in base_image, the plain upstream image, with
+# base_mounts. Bintars are built and tested in the worker image.
 packages:
 
   rpm:
@@ -98,25 +67,17 @@ packages:
       ubuntu-2404-deb-autobake:     { image: ubuntu24.04,    arch: [amd64, aarch64],      base_image: docker.io/library/ubuntu:24.04 }
       ubuntu-2604-deb-autobake:     { image: ubuntu26.04,    arch: [amd64, aarch64],      base_image: docker.io/library/ubuntu:26.04 }
 
-  # Built against an unpacked server bintar instead of -devel packages.
-  # centos7 serves up to 11.4, almalinux8 from 11.8 on.
+  # Built against an unpacked server bintar. centos7 up to 11.4, almalinux8
+  # from 11.8.
   bintar:
     mirror_bintar: bintar-linux-systemd-x86_64   # the only flavour mirrored, hence amd64 only
     targets:
       centos-7-bintar:              { image: centos7-bintar,    arch: [amd64] }
       almalinux-8-bintar:           { image: almalinux8-bintar, arch: [amd64] }
 
-# ---------------------------------------------------------------------------
-# MariaDB versions
-#   targets   built on every run. The version must be a directory on the
-#             mirrors (yum/<version>, repo/<version>) with a GA release, and
-#             each target must be on the mirrors for it.
-#   ci_only   platforms whose server builders publish to CI but that haven't
-#             reached the mirrors yet (they only get there at release time).
-#             Built only when Force picks a CI tarbuildnum for the version;
-#             skipped on mirror runs and pull requests. Move a target up to
-#             "targets" once a release has put it on the mirrors.
-# ---------------------------------------------------------------------------
+# targets: built on every run; each must be on the mirrors for that version.
+# ci_only: platforms on CI but not on the mirrors yet; built only when Force
+# picks a CI tarbuildnum. Move them to targets once a release is mirrored.
 mariadb_versions:
 
   "11.4":

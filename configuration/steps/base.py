@@ -13,12 +13,8 @@ class StepOptions:  # all step (shell, compile, etc) types support these options
     Attributes:
         alwaysRun (bool): If True, the step will always run regardless of previous failures.
         haltOnFailure (bool): If True, the build will halt if this step fails.
-        flunkOnWarnings (bool): If True, a step ending in WARNINGS still fails the
-            overall build, while the step itself stays a warning and the build
-            carries on (see computeResultAndTermination in buildbot's
-            process/results.py). Use for best-effort steps that partly succeeded:
-            the step stays open-able to see what went wrong, but the run is not
-            reported as green.
+        flunkOnWarnings (bool): If True, a step ending in WARNINGS fails the
+            build, which carries on; the step itself stays a warning.
         doStepIf (callable): A callable that determines if the step should be executed.
     """
 
@@ -40,17 +36,9 @@ class StepOptions:  # all step (shell, compile, etc) types support these options
 
 
 class BaseStep(ABC):
-    # buildbot stores step names in steps.name, a VARCHAR(50) (see
-    # buildbot/db/model.py). A longer name is only rejected when the row is
-    # inserted -- that is, partway through a build that has already been
-    # running for a while -- as
-    #
-    #   DataError: (1406, "Data too long for column 'name' at row 1")
-    #
-    # Checking here turns that into a config-time error instead, which
-    # checkconfig catches before a deploy. Watch out for the names derived
-    # from these: a checkpointed step also generates "Checkpoint <name>"
-    # (+11) and PropFromShellStep renames to "Set <property> from <name>".
+    # buildbot stores step names in a VARCHAR(50) and only rejects a longer
+    # one mid-build, so check at config time. Derived names count too:
+    # "Checkpoint <name>" and PropFromShellStep's "Set <property> from <name>".
     MAX_NAME_LENGTH = 50
 
     def __init__(self, name: str, options: Optional[StepOptions] = None):
@@ -66,9 +54,7 @@ class BaseStep(ABC):
 
     @name.setter
     def name(self, value: str):
-        # A property setter rather than a check in __init__ because
-        # PropFromShellStep assigns its own name afterwards, and that derived
-        # name is the longer one.
+        # A setter, as PropFromShellStep renames the step after __init__.
         if isinstance(value, str) and len(value) > self.MAX_NAME_LENGTH:
             raise ValueError(
                 f"step name is {len(value)} characters, over the "

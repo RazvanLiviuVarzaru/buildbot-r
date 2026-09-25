@@ -9,7 +9,6 @@ from configuration.steps.base import StepOptions
 from configuration.steps.commands.base import URL
 from configuration.steps.commands.foundry import (
     BUILT_PLUGINS_ENV,
-    INSTALLED_PLUGINS_ENV,
     PLUGINS_ENV,
     BuildPlugins,
     BuildPluginsShellCommand,
@@ -19,7 +18,6 @@ from configuration.steps.commands.foundry import (
     DownloadServerBintarFromMirror,
     ExtractPluginBintarIntoServerBintar,
     InstallBuiltPackages,
-    ListInstalledPlugins,
     PrepareBaseImage,
     RunPluginMTRSuite,
     RunPluginMTRSuiteFromBintar,
@@ -37,29 +35,21 @@ from configuration.steps.remote import PropFromShellStep, ShellStep
 
 _MARIADB_VERSION_ENV = [("MARIADB_VERSION", "%(prop:mariadb_version)s")]
 
-# The plugins to build come from the dispatcher, which discovers them in the
-# Foundry checkout (all of them, or just the ones a pull request touched).
-# built/installed narrow that down as the build proceeds -- see the
-# best-effort handling in configuration/steps/commands/foundry.py. Passed as
-# environment rather than interpolated into the scripts; see PLUGINS_ENV.
+# The plugins the dispatcher asked for, then those that built.
 _PLUGINS_ENV = [(PLUGINS_ENV, "%(prop:foundry_plugins)s")]
 _BUILT_PLUGINS_ENV = [(BUILT_PLUGINS_ENV, "%(prop:built_plugins)s")]
-_INSTALLED_PLUGINS_ENV = [(INSTALLED_PLUGINS_ENV, "%(prop:installed_plugins)s")]
 
-# Steps that partly succeed report it in their exit code; the step shows a
-# warning you can open to see which plugin failed, and flunkOnWarnings makes
-# the build fail anyway so a half-working run is never reported green.
+# A partly successful step is a warning, but still fails the build.
 _BEST_EFFORT_OPTIONS = StepOptions(flunkOnWarnings=True)
 
+# Saved packages and MTR logs, per MariaDB version and server source. Mirror
+# builds have no tarbuildnum and go under "mirror" (":~" also catches empty).
+_RUN_DIR = "foundry/%(prop:mariadb_version)s-%(prop:tarbuildnum:~mirror)s"
+_LOGS_DIR = f"{_RUN_DIR}/%(prop:foundry_revision)s/logs/%(prop:buildername)s"
 
-# Where the MariaDB server packages come from is a per-build decision (made
-# per MariaDB version on foundry_force_scheduler, see
-# configuration/builders/definitions/foundry/sources.py) rather than a
-# per-builder one, so both repo sources are wired into every package builder
-# and picked between here. tarbuildnum is the whole signal: the dispatcher
-# sets it only for a ci.mariadb.org run, so no tarbuildnum -- including on a
-# build of one of these builders that was never given one -- means the
-# MariaDB Server mirrors.
+
+# The server source is chosen per build: the dispatcher sets tarbuildnum for
+# ci.mariadb.org and leaves it unset for the mirrors. Both steps are wired in.
 def _uses_ci_tarball(step):
     return bool(step.getProperty("tarbuildnum"))
 
@@ -68,26 +58,18 @@ def _uses_mirror(step):
     return not _uses_ci_tarball(step)
 
 
-# Pull request runs are throwaway validation of a proposed change, not a
-# source of packages anyone should be able to install from, so they skip
-# saving. Set by the dispatcher, which is the only place that knows whether
-# the run came from a GitHub pull request event.
 def _not_pull_request(step):
     return not step.getProperty("is_pull_request", False)
 
 
-# Same reason the two repo steps are conditional: a mirror-sourced build has
-# no build number to file its packages and logs under, so it gets its own
-# "mirror" bucket instead of an empty path segment. ":~" falls back when the
-# property is unset *or* empty.
-_SERVER_SOURCE = "%(prop:tarbuildnum:~mirror)s"
+# A plugin without MTR suites is only built and installed. With none at all,
+# the test steps are skipped.
+def _has_suites(step):
+    return bool(step.getProperty("plugin_suites"))
 
 
 def _download_foundry_step(config: DockerConfig):
-    # Foundry comes from the dispatcher, as an archive of the commit it
-    # checked out, rather than from a clone of GitHub -- see trigger_foundry()
-    # in dispatcher.py. It also hands on foundry_revision, the short commit
-    # the saved packages and logs are filed under.
+    # The dispatcher's archive of Foundry; see dispatcher.py.
     return InContainer(
         ShellStep(
             command=DownloadFoundrySource(
@@ -99,26 +81,24 @@ def _download_foundry_step(config: DockerConfig):
     )
 
 
-def _run_plugin_mtr_suite_step(config: DockerConfig, command: RunPluginMTRSuite):
-    # Points at the same "logs" dir RunPluginMTRSuite's default
-    # save_logs_path saves into on failure -- see foundry.py. One MTR run
-    # covers every built plugin's suites, so these logs are per run, with no
-    # plugin segment.
-    url = (
-        f"{os.environ['ARTIFACTS_URL']}/foundry/%(prop:mariadb_version)s-{_SERVER_SOURCE}"
-        "/%(prop:foundry_revision)s/logs/%(prop:buildername)s"
-    )
+def _run_plugin_mtr_suite_step(config: DockerConfig, package_type: str):
+    # One MTR run covers every plugin, so logs are per run.
     return InContainer(
-        ShellStep(command=command, url=URL(url=url, url_text="Logs")),
+        ShellStep(
+            command=RunPluginMTRSuite(
+                package_type,
+                "%(prop:plugin_suites)s",
+                save_logs_path=f"/packages/{_LOGS_DIR}",
+            ),
+            url=URL(url=f"{os.environ['ARTIFACTS_URL']}/{_LOGS_DIR}", url_text="Logs"),
+            options=StepOptions(doStepIf=_has_suites),
+        ),
         docker_environment=config,
     )
 
 
 def _build_plugins_step(config: DockerConfig, command: BuildPlugins):
-    # Besides building, this narrows the requested plugins down to the ones
-    # run.cmake reports as built, into built_plugins, so everything downstream
-    # works off what exists rather than what was asked for. See
-    # BuildPluginsShellCommand.
+    # Also sets built_plugins, which the later steps work off.
     return InContainer(
         ShellStep(
             command=command,
@@ -131,29 +111,18 @@ def _build_plugins_step(config: DockerConfig, command: BuildPlugins):
 
 
 def _save_packages_step(config: DockerConfig):
-    # The same builder gets triggered once per mariadb_version (and, on a
-    # different run, for a different foundry commit) -- both need to be in
-    # the destination path, or a later run silently overwrites an earlier
-    # one's saved packages. So does the plugin, since one run now builds
-    # several: $plugin is filled in by the shell, per plugin, which is why
-    # SavePluginPackages exists rather than a plain SavePackages over the
-    # workspace root (run.cmake pools every plugin's packages there).
-    # mariadb_version-tarbuildnum is kept as a single segment so it reads
-    # unambiguously as "the tarbuildnum for this mariadb_version", not some
-    # unrelated build number. Mirror-sourced builds have no tarbuildnum and
-    # land under "<version>-mirror" instead -- see _SERVER_SOURCE.
+    # One directory per plugin, commit and builder, so runs don't overwrite
+    # each other. The link can only point at the run's directory.
     destination = (
-        f"/packages/foundry/%(prop:mariadb_version)s-{_SERVER_SOURCE}/$plugin"
-        "/%(prop:foundry_revision)s/%(prop:buildername)s"
+        f"/packages/{_RUN_DIR}/$plugin/%(prop:foundry_revision)s/%(prop:buildername)s"
     )
-    # One link per plugin isn't expressible on a step, so this points at the
-    # directory holding all of this run's plugin trees.
-    url = f"{os.environ['ARTIFACTS_URL']}/foundry/%(prop:mariadb_version)s-{_SERVER_SOURCE}"
     return InContainer(
         ShellStep(
             command=SavePluginPackages(destination=destination),
             env_vars=_BUILT_PLUGINS_ENV,
-            url=URL(url=url, url_text="Packages"),
+            url=URL(
+                url=f"{os.environ['ARTIFACTS_URL']}/{_RUN_DIR}", url_text="Packages"
+            ),
             options=StepOptions(doStepIf=_not_pull_request),
         ),
         docker_environment=config,
@@ -165,8 +134,6 @@ _PACKAGE_COMMANDS = {
     "RPM": (SetupRPMRepoFromURL, SetupRPMRepo, InstallRPMPackages),
 }
 
-# Where each family's galera repo file goes, next to the server repo file the
-# CI step installs. See _server_repo_steps.
 _GALERA_REPO_FILE = {"DEB": "galera.sources", "RPM": "galera.repo"}
 
 
@@ -178,24 +145,15 @@ def _server_repo_steps(
     galera_repo_url: str,
     where: str,
 ):
-    # "where" is the image the repo is added to, "worker" or "base" -- see
-    # the comment in _packages(). Kept to one word, and the names below
-    # kept terse, because both steps are checkpointed: that generates a
-    # second step named "Checkpoint <name>", and buildbot stores step names
-    # in a VARCHAR(50). Overflowing it fails the INSERT mid-build, not at
-    # config time, so the budget here is 39 characters.
+    # where: "worker" or "base". Both steps are checkpointed, which adds a
+    # "Checkpoint <name>" step, so names must stay within 39 characters.
     setup_from_url, setup_mirror, _ = _PACKAGE_COMMANDS[package_type]
     return [
         InContainer(
             ShellStep(
-                # The CI repo carries the server build on its own, but
-                # MariaDB-server requires galera-4 and the CI repo has no
-                # copy of it, so installing anything that pulls the server
-                # in -- the plugin packages, MariaDB-server itself -- fails
-                # with "nothing provides galera-4". The mirrors ship galera
-                # alongside the server, which is why only this branch needs
-                # it. Same pair of repos rpm-install.sh sets up, and from
-                # the same CI, so the galera build matches the server's.
+                # The CI repo has no galera-4, which MariaDB-server needs, so
+                # add CI's galera repo too, as rpm-install.sh does. The
+                # mirrors carry galera already.
                 command=setup_from_url(
                     repo_file_url,
                     name=f"Add server CI repo ({where})",
@@ -221,7 +179,7 @@ def _server_repo_steps(
     ]
 
 
-def _packages(
+def packages(
     package_type: str,
     config: DockerConfig,
     base_config: DockerConfig,
@@ -231,12 +189,9 @@ def _packages(
     build_packages: list[str],
     test_packages: list[str],
 ):
-    # Built in the worker image (config), then installed and tested in the
-    # target's plain upstream base image (base_config), so a package that
-    # doesn't declare a dependency fails to install or run instead of
-    # finding it already there. Switching to base_config swaps the container
-    # image but keeps the workspace volume, and with it the built packages;
-    # nothing installed in the worker image comes along.
+    # package_type: "RPM" or "DEB". Built in the worker image (config), then
+    # installed and tested in the plain base image (base_config), so an
+    # undeclared dependency fails. Only the workspace volume carries over.
     _, _, install = _PACKAGE_COMMANDS[package_type]
     sequence = BuildSequence()
 
@@ -289,25 +244,13 @@ def _packages(
             container_commit=True,
         )
     )
-    sequence.add_step(
-        InContainer(
-            PropFromShellStep(
-                command=ListInstalledPlugins(package_type),
-                property="installed_plugins",
-                env_vars=_BUILT_PLUGINS_ENV,
-            ),
-            docker_environment=base_config,
-        )
-    )
-    # Before the server test package lands: it ships plugin suites of its own
-    # under the same layout, which would be indistinguishable from ours
-    # afterwards.
+    # Before MariaDB-test lands, as its own suites look like ours.
     sequence.add_step(
         InContainer(
             PropFromShellStep(
                 command=DiscoverPluginMTRSuites(package_type),
                 property="plugin_suites",
-                env_vars=_INSTALLED_PLUGINS_ENV,
+                env_vars=_BUILT_PLUGINS_ENV,
             ),
             docker_environment=base_config,
         )
@@ -315,26 +258,15 @@ def _packages(
     sequence.add_step(
         InContainer(
             ShellStep(
-                command=install(packages=test_packages, name="Install test packages")
+                command=install(packages=test_packages, name="Install test packages"),
+                options=StepOptions(doStepIf=_has_suites),
             ),
             docker_environment=base_config,
             container_commit=True,
         )
     )
-    sequence.add_step(
-        _run_plugin_mtr_suite_step(
-            base_config, RunPluginMTRSuite(package_type, "%(prop:plugin_suites)s")
-        )
-    )
+    sequence.add_step(_run_plugin_mtr_suite_step(base_config, package_type))
     return sequence
-
-
-def deb(config: DockerConfig, base_config: DockerConfig, **kwargs):
-    return _packages("DEB", config, base_config, **kwargs)
-
-
-def rpm(config: DockerConfig, base_config: DockerConfig, **kwargs):
-    return _packages("RPM", config, base_config, **kwargs)
 
 
 _SERVER_BINTAR_PROP = "%(prop:server_bintar_dir)s"
@@ -343,18 +275,8 @@ _SERVER_BINTAR_PROP = "%(prop:server_bintar_dir)s"
 def bintar(
     config: DockerConfig, ci_bintar_url: str, mirror_url: str, mirror_bintar: str
 ):
-    # Bintar images (centos7, almalinux8) have no autobake builder of their
-    # own to install -devel packages from -- instead, the plugin is built
-    # against a matching MariaDB server bintar via -DCMAKE_PREFIX_PATH.
-    # Testing then means unpacking the plugin's own bintar into that same
-    # server bintar tree and running its bundled ./mtr, rather than
-    # installing MariaDB-server/MariaDB-test as system packages.
-    #
-    # Same split as the deb/rpm sequences: the CI bintar comes from
-    # ci_bintar_url, the server builder's directory on CI (e.g.
-    # ".../<tarbuildnum>/amd64-centos-7-bintar"), the mirror one from the
-    # newest GA release of this MariaDB version. Only one
-    # of the two runs, and whichever does sets server_bintar_dir.
+    # No -devel packages here: build against a server bintar, from CI or the
+    # newest mirrored release, then test inside it with its own ./mtr.
     sequence = BuildSequence()
     sequence.add_step(_download_foundry_step(config))
     sequence.add_step(
@@ -381,9 +303,6 @@ def bintar(
         _build_plugins_step(config, BuildPlugins(cmake_prefix_path=_SERVER_BINTAR_PROP))
     )
     sequence.add_step(_save_packages_step(config))
-    # There is no install step here, so built is as far as the plugin list
-    # gets narrowed -- the extraction takes each built plugin's tarball from
-    # its own <plugin>.build/.
     sequence.add_step(
         InContainer(
             PropFromShellStep(
@@ -399,7 +318,8 @@ def bintar(
             ShellStep(
                 command=RunPluginMTRSuiteFromBintar(
                     _SERVER_BINTAR_PROP, "%(prop:plugin_suites)s"
-                )
+                ),
+                options=StepOptions(doStepIf=_has_suites),
             ),
             docker_environment=config,
         )

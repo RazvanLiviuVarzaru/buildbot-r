@@ -1,61 +1,37 @@
-"""Where a foundry build gets its MariaDB server packages from.
-
-Picked per supported MariaDB version on foundry_force_scheduler (see
-configuration/schedulers/foundry.py) and acted on by the dispatcher's
-_FoundryDispatchStep (configuration/steps/commands/trigger.py), which turns
-the choice into the "tarbuildnum" property the package builders branch on:
-set to a ci.mariadb.org build number for CI_TARBALL, left unset for MIRROR.
-
-Deliberately a leaf module with no imports of its own -- both the dispatch
-step (under configuration/steps/) and the foundry builder definitions need
-this vocabulary, and those two already import each other transitively.
-"""
+# Where a Foundry run gets its MariaDB server packages, picked per version on
+# the force scheduler. The dispatcher turns it into the tarbuildnum property:
+# set for CI_TARBALL, unset for MIRROR. No imports, so both the builder
+# definitions and the dispatch step can use it.
 
 MIRROR = "Use MariaDB Server mirrors"
 CI_TARBALL = "Use a ci.mariadb.org tarball"
 SKIP = "Skip this version"
 
-# Order is the order the dropdown renders in; the first entry is also the
-# default, i.e. a version nobody touched builds against the mirrors.
+# Dropdown order; the first is the default.
 CHOICES = [MIRROR, CI_TARBALL, SKIP]
 DEFAULT = MIRROR
 
 
 def _slug(mariadb_version: str) -> str:
-    # Property and scheduler names are matched literally in URLs and in the
-    # force-scheduler form, so keep the dots out of them.
+    # No dots in property and scheduler names.
     return mariadb_version.replace(".", "_")
 
 
+# Force-scheduler field with this version's choice from CHOICES.
 def source_property(mariadb_version: str) -> str:
-    """Force-scheduler field holding this version's choice from CHOICES."""
     return f"foundry_source_{_slug(mariadb_version)}"
 
 
+# Force-scheduler field with this version's tarbuildnum, for CI_TARBALL.
 def tarbuildnum_property(mariadb_version: str) -> str:
-    """Force-scheduler field holding this version's ci.mariadb.org tarbuildnum.
-
-    Only meaningful when the matching source_property is CI_TARBALL.
-    """
     return f"foundry_tarbuildnum_{_slug(mariadb_version)}"
 
 
+# Triggerable for this version's builders, whatever the source.
 def scheduler_name(mariadb_version: str) -> str:
-    """Triggerable that runs this version's builders.
-
-    One per version, not per (version, source): MIRROR and CI_TARBALL run the
-    same builders and differ only in the tarbuildnum property they carry.
-    Which packages a version builds at all is its "packages" list in
-    foundry.yaml, and that list has to hold only packages the mirrors publish
-    for that version -- see the notes there.
-    """
     return f"foundry_{_slug(mariadb_version)}_scheduler"
 
 
+# Triggerable for this version's ci_only builders, fired on CI_TARBALL only.
 def ci_only_scheduler_name(mariadb_version: str) -> str:
-    """Triggerable that runs this version's ci_only builders.
-
-    Fired only when the version's source is CI_TARBALL: these are platforms
-    whose server packages exist on CI but not yet on the mirrors.
-    """
     return f"foundry_{_slug(mariadb_version)}_ci_only_scheduler"

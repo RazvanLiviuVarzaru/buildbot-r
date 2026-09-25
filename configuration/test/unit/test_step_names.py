@@ -1,10 +1,5 @@
-"""buildbot stores step names in steps.name, a VARCHAR(50).
-
-Overflowing it raises DataError(1406) when the step row is inserted, i.e.
-partway through a build rather than at config time, so BaseStep checks the
-length up front. These tests pin that check and the two places a name grows
-after it is first set.
-"""
+"""BaseStep's check of the 50 characters buildbot stores per step name,
+including the names derived from it."""
 
 import pathlib
 import unittest
@@ -18,9 +13,8 @@ LIMIT = BaseStep.MAX_NAME_LENGTH
 
 
 class _StubCommand(Command):
-    # Deliberately not a real command: the ones in commands/download.py and
-    # commands/foundry.py import utils -> constants, which read os.environ at
-    # import time and so are unavailable to a bare unit test run.
+    # Not a real command: some, like commands/download.py's, import utils,
+    # which needs the master's environment.
     def __init__(self, name):
         super().__init__(name=name, workdir=pathlib.PurePath("."))
 
@@ -44,8 +38,7 @@ class TestStepNameLimit(unittest.TestCase):
         self.assertIn(str(LIMIT + 1), str(caught.exception))
 
     def test_rejects_the_checkpoint_name(self):
-        """A checkpointed step generates a second step, "Checkpoint <name>",
-        so its real budget is 11 characters smaller."""
+        """A checkpointed step adds a "Checkpoint <name>" step."""
         name = "x" * (LIMIT - 10)
         ShellStep(command=_StubCommand(name))  # fits on its own
         with self.assertRaises(ValueError):

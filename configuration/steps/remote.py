@@ -23,22 +23,17 @@ class ShellStep(BaseStep):
         urlText (str): Optional text for the URL. Defaults to the url itself.
         timeout (int): Timeout for the command execution in seconds. Defaults to 1200 seconds.
         warn_on_fail (bool): If True, treat non-zero return codes as warnings instead of failures.
-        decode_rc (dict): Explicit return-code-to-result mapping, overriding
-            warn_on_fail. Return codes absent from it are failures.
-        step_class (type): The buildbot step generate() builds, given the same
-            arguments whatever the class. Defaults to ShellCommandWithURL; a
-            subclass of it can read the command's output to decide the result,
-            e.g. commands/foundry.py's BuildPluginsShellCommand.
+        decode_rc (dict): Return code to result, overriding warn_on_fail;
+            unlisted codes fail.
+        step_class (type): The buildbot step to generate, ShellCommandWithURL
+            or a subclass, e.g. one that reads the output (BuildPluginsShellCommand).
     Args:
     """
 
     DEFAULT_DECODE_RC = {0: SUCCESS}
     WARN_ON_FAIL_DECODE_RC = {0: SUCCESS, **{i: WARNINGS for i in range(1, 256)}}
-    # For commands that work through a list of items best-effort and report
-    # the outcome in their exit code: 0 = all succeeded, 2 = some did and some
-    # didn't, anything else = none did. Pair with
-    # StepOptions(flunkOnWarnings=True) so the partial case reads as a warning
-    # on the step but still fails the build.
+    # Best-effort commands: 0 all succeeded, 2 some did, else none did. Pair
+    # with flunkOnWarnings, so a partial success still fails the build.
     PARTIAL_SUCCESS_DECODE_RC = {0: SUCCESS, 2: WARNINGS}
 
     def __init__(

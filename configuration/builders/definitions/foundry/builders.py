@@ -16,17 +16,10 @@ _CI_URL = _FOUNDRY_CONFIG["server"]["ci_url"]
 _MIRROR_URL = _FOUNDRY_CONFIG["server"]["mirror_url"]
 _ARCH_OVERRIDES = _FOUNDRY_CONFIG["arch"]
 
-_SEQUENCE_BY_PACKAGE_TYPE = {
-    "rpm": autobake.rpm,
-    "deb": autobake.deb,
-}
-
 
 def _base_image_config(package_config, arch_override):
-    # The target's plain upstream image, where rpm/deb packages are installed
-    # and tested (see autobake._packages). A full image reference, hence the
-    # empty repository; same bind mounts and environment as the worker image,
-    # plus the target's base_mounts.
+    # The target's plain upstream image, where rpm/deb packages are tested. A
+    # full image reference, hence the empty repository.
     image = package_config["base_image"]
     if "base_image_prefix" in arch_override:
         image = arch_override["base_image_prefix"] + image.rsplit("/", 1)[-1]
@@ -36,15 +29,13 @@ def _base_image_config(package_config, arch_override):
         additional_bind_mounts=[
             tuple(mount) for mount in package_config.get("base_mounts", [])
         ],
-        # A bare distro image has no debconf defaults; keep apt from
-        # prompting (e.g. tzdata) while dependencies get pulled in.
+        # A bare image has no debconf defaults; keep apt from prompting.
         additional_env_vars=[("DEBIAN_FRONTEND", "noninteractive")],
     )
     return replace(config, repository="")
 
 
-# (package type, its settings, target, target settings), from the
-# per-family sections of "packages" in foundry.yaml.
+# (package type, its settings, target, target settings) from foundry.yaml.
 _TARGETS = [
     (package_type, type_config, package, package_config)
     for package_type, type_config in _FOUNDRY_CONFIG["packages"].items()
@@ -53,7 +44,6 @@ _TARGETS = [
 
 
 FOUNDRY_BUILDERS_BY_ARCH = {}
-# Builders grouped by target, regardless of arch.
 FOUNDRY_BUILDERS_BY_PACKAGE = {}
 for package_type, type_config, package, package_config in _TARGETS:
     for arch in package_config["arch"]:
@@ -63,16 +53,9 @@ for package_type, type_config, package, package_config in _TARGETS:
             image=f"{package_config['image']}{arch_override.get('image_suffix', '')}",
             platform=platform,
         )
-        # The MariaDB server builder this one mirrors, e.g.
-        # "amd64-debian-12-deb-autobake" -- see BUILDERS_AUTOBAKE in
-        # constants.py.
+        # The server builder this one mirrors, e.g. amd64-debian-12-deb-autobake.
         server_builder = f"{arch}-{package}"
         if package_type == "bintar":
-            # Bintar builds link against a MariaDB server bintar (see
-            # autobake.bintar) instead of installing -devel packages from an
-            # autobake builder's repo, so there's no repo URL to build. Only
-            # the CI side is per builder -- the mirror bintar is the same
-            # tarball for every builder, see DownloadServerBintarFromMirror.
             sequence = autobake.bintar(
                 container_config,
                 ci_bintar_url=f"{_CI_URL}/%(prop:tarbuildnum)s/{server_builder}",
@@ -80,22 +63,12 @@ for package_type, type_config, package, package_config in _TARGETS:
                 mirror_bintar=type_config["mirror_bintar"],
             )
         else:
-            # Both repo sources are wired into every package builder; which
-            # one runs is decided per build from the tarbuildnum property.
-            # The server builder publishes the CI repo file; the mirrors
-            # publish one repo directory per MariaDB version.
-            #
-            # galera-4 is a MariaDB-server dependency that the CI repo does
-            # not carry, so the CI branch needs the galera repo too. CI
-            # publishes one repo file per platform, named after the server
-            # builder without its "-<type>-autobake" suffix and pointing at
-            # the newest galera 4.x build for it -- the same file
-            # bash_lib.sh's {rpm,deb}_setup_bb_galera_artifacts_mirror
-            # installs. The mirrors ship galera themselves, so that branch
-            # has no equivalent.
+            # CI publishes a galera repo file per platform: the server
+            # builder's name without "-<type>-autobake".
             galera_platform = server_builder.removesuffix(f"-{package_type}-autobake")
             galera_file_suffix = "repo" if package_type == "rpm" else "sources"
-            sequence = _SEQUENCE_BY_PACKAGE_TYPE[package_type](
+            sequence = autobake.packages(
+                package_type.upper(),
                 container_config,
                 base_config=_base_image_config(package_config, arch_override),
                 repo_file_url=(
@@ -120,8 +93,6 @@ for package_type, type_config, package, package_config in _TARGETS:
         FOUNDRY_BUILDERS_BY_ARCH.setdefault(arch, []).append(builder)
         FOUNDRY_BUILDERS_BY_PACKAGE.setdefault(package, []).append(builder)
 
-# Supported MariaDB versions and the targets each one builds. Configured in
-# configuration/builders/definitions/foundry/foundry.yaml.
 FOUNDRY_MARIADB_VERSIONS = _FOUNDRY_CONFIG["mariadb_versions"]
 for version, version_config in FOUNDRY_MARIADB_VERSIONS.items():
     for package in version_config["targets"] + version_config["ci_only"]:
@@ -142,9 +113,8 @@ def _builder_names(packages):
     ]
 
 
-# Which builders each Triggerable fires, keyed by scheduler name -- consumed
-# by FOUNDRY_TRIGGERABLE_SCHEDULERS in configuration/schedulers/foundry.py.
-# A version gets a second Triggerable only if it has ci_only targets.
+# Builders per Triggerable, keyed by scheduler name. A version gets a second
+# Triggerable only if it has ci_only targets.
 FOUNDRY_TRIGGERABLE_BUILDERS = {}
 for version, version_config in FOUNDRY_MARIADB_VERSIONS.items():
     FOUNDRY_TRIGGERABLE_BUILDERS[sources.scheduler_name(version)] = _builder_names(
@@ -157,17 +127,15 @@ for version, version_config in FOUNDRY_MARIADB_VERSIONS.items():
 
 
 def _dispatch_specs():
-    # One spec per supported MariaDB version, telling _FoundryDispatchStep
-    # which force-scheduler fields hold that version's choice and which
-    # Triggerable to fire once it has read them.
+    # Per version: the force-scheduler fields holding its choice, and the
+    # Triggerable(s) to fire.
     return [
         {
             "mariadb_version": version,
             "source_property": sources.source_property(version),
             "tarbuildnum_property": sources.tarbuildnum_property(version),
             "scheduler": sources.scheduler_name(version),
-            # Fired alongside "scheduler" only for a CI tarball run; None
-            # when the version has no ci_only targets.
+            # Fired too on CI tarball runs; None without ci_only targets.
             "ci_only_scheduler": (
                 sources.ci_only_scheduler_name(version)
                 if version_config["ci_only"]
