@@ -641,14 +641,50 @@ echo "${{suites#,}}"
         ]
 
 
+# MTR's var directory. Not /home/buildbot itself: that is the volume's mount
+# point, which MTR can't remove.
+_MTR_VARDIR = "/home/buildbot/mtr-var"
+
+
+def _save_mtr_logs(save_logs_path: str, find_binaries: str) -> str:
+    # Shell for after a failed MTR run: packs its logs into
+    # save_logs_path/var.tar.gz, as the server builders' createVar() does,
+    # plus the plugins and mariadbd if a core was dumped, then fails the step.
+    # find_binaries sets $plugins_dir and $mariadbd_path. Like
+    # MTRTest._save_logs (commands/mtr.py), for installed packages or a bintar.
+    logs = ["*.log", "*.err*", "core*"]
+    patterns = " -o ".join([f'-iname "{log}"' for log in logs])
+    return f"""
+            vardir="{_MTR_VARDIR}"
+            save_logs_path="{save_logs_path}"
+            file_patterns_to_save="{patterns}"
+            {find_binaries}
+            echo "Saving MTR logs"
+
+            mkdir -p "$save_logs_path"
+
+            # Save plugins .so and mariadbd if a core file was generated
+            save_bin=0
+            find $vardir -name '*core.*' -exec false {{}} + || save_bin=1
+            if [[ $save_bin -ne 0 ]]; then
+                plugins_list=$(mktemp)
+                find -L "$plugins_dir" -maxdepth 1 -type f -name '*.so' -printf '%%f\\n' > "$plugins_list"
+                tar -czvf "$save_logs_path/plugins.tar.gz" --dereference -C "$plugins_dir" -T "$plugins_list"
+                rm -f "$plugins_list"
+                [ -f "$mariadbd_path" ] && gzip -c "$mariadbd_path" > "$save_logs_path/mariadbd.gz"
+            fi
+
+            # Some core files are left uncompressed by MTR
+            find $vardir -iregex ".*/core\\(\\.[0-9]+\\)?" -ls -exec gzip {{}} +
+
+            cd "$vardir" && find . -type f \\( -path './log/*' -o $file_patterns_to_save \\) -print0 | tar -czf "$save_logs_path/var.tar.gz" --null -T -
+            exit 1 # Script was invoked by an MTR failure so we must mark the step as failed
+            """
+
+
 class RunPluginMTRSuite(Command):
     # Runs every suite in one MTR run (--force), from the installed test
     # package. On failure the logs go to save_logs_path.
-    #
-    # Not /home/buildbot itself: that is the volume's mount point, which MTR
-    # can't remove.
-    MTR_VARDIR = "/home/buildbot/mtr-var"
-
     def __init__(
         self,
         package_type: str,
@@ -669,6 +705,15 @@ class RunPluginMTRSuite(Command):
             list_files_cmd = "rpm -ql MariaDB-test"
         else:
             list_files_cmd = "dpkg -L mariadb-test"
+        find_binaries = """
+            if [ -d /usr/lib/mysql/plugin ]; then
+                plugins_dir="/usr/lib/mysql/plugin"
+            elif [ -d /usr/lib64/mysql/plugin ]; then
+                plugins_dir="/usr/lib64/mysql/plugin"
+            else
+                plugins_dir="$vardir/plugins"
+            fi
+            mariadbd_path=$(command -v mariadbd 2>/dev/null || true)"""
         return [
             "bash",
             "-exc",
@@ -683,64 +728,32 @@ if [ -z "$mtr_script" ]; then
 fi
 mtr_base_dir=$(dirname "$mtr_script")
 
-cd "$mtr_base_dir" && perl mariadb-test-run.pl --force --max-test-fail=20 --suite="{self.suites}" --vardir={self.MTR_VARDIR} || ({self._save_logs()})
+cd "$mtr_base_dir" && perl mariadb-test-run.pl --force --max-test-fail=20 --suite="{self.suites}" --vardir={_MTR_VARDIR} || ({_save_mtr_logs(self.save_logs_path, find_binaries)})
 """
             ),
         ]
 
-    def _save_logs(self) -> str:
-        # MTRTest._save_logs (commands/mtr.py) for installed packages only,
-        # packed into one var.tar.gz as the server builders' createVar() does.
-        logs = ["*.log", "*.err*", "core*"]
-        patterns = " -o ".join([f'-iname "{log}"' for log in logs])
-        return f"""
-            vardir="{self.MTR_VARDIR}"
-            save_logs_path="{self.save_logs_path}"
-            file_patterns_to_save="{patterns}"
-
-            if [ -d /usr/lib/mysql/plugin ]; then
-                plugins_dir="/usr/lib/mysql/plugin"
-            elif [ -d /usr/lib64/mysql/plugin ]; then
-                plugins_dir="/usr/lib64/mysql/plugin"
-            else
-                plugins_dir="$vardir/plugins"
-            fi
-            mariadbd_path=$(command -v mariadbd 2>/dev/null || true)
-
-            echo "Saving MTR logs"
-
-            mkdir -p "$save_logs_path"
-
-            # Save plugins .so and mariadbd if a core file was generated
-            save_bin=0
-            find $vardir -name *core.* -exec false {{}} + || save_bin=1
-            if [[ $save_bin -ne 0 ]]; then
-                plugins_list=$(mktemp)
-                find -L "$plugins_dir" -maxdepth 1 -type f -name '*.so' -printf '%%f\\n' > "$plugins_list"
-                tar -czvf "$save_logs_path/plugins.tar.gz" --dereference -C "$plugins_dir" -T "$plugins_list"
-                rm -f "$plugins_list"
-                [ -n "$mariadbd_path" ] && gzip -c "$mariadbd_path" > "$save_logs_path/mariadbd.gz"
-            fi
-
-            # Some core files are left uncompressed by MTR
-            find $vardir -iregex ".*/core\\(\\.[0-9]+\\)?" -ls -exec gzip {{}} +
-
-            cd "$vardir" && find . -type f \\( -path './log/*' -o $file_patterns_to_save \\) -print0 | tar -czf "$save_logs_path/var.tar.gz" --null -T -
-            exit 1 # Script was invoked by an MTR failure so we must mark the step as failed
-            """
-
 
 class RunPluginMTRSuiteFromBintar(Command):
     # Runs the suites ExtractPluginBintarIntoServerBintar found, with the
-    # server bintar's own ./mtr.
+    # server bintar's own ./mtr. On failure the logs go to save_logs_path.
     def __init__(
-        self, server_bintar_dir: str, suites: str, workdir: PurePath = PurePath(".")
+        self,
+        server_bintar_dir: str,
+        suites: str,
+        save_logs_path: str,
+        workdir: PurePath = PurePath("."),
     ):
         self.server_bintar_dir = server_bintar_dir
         self.suites = suites
+        self.save_logs_path = save_logs_path
         super().__init__(name="Run plugin MTR suite", workdir=workdir)
 
     def as_cmd_arg(self) -> list[str]:
+        find_binaries = (
+            f'plugins_dir="{self.server_bintar_dir}/lib/plugin"; '
+            f'mariadbd_path="{self.server_bintar_dir}/bin/mariadbd"'
+        )
         return [
             "bash",
             "-exc",
@@ -748,7 +761,7 @@ class RunPluginMTRSuiteFromBintar(Command):
                 f"""
 set -euo pipefail
 
-cd "{self.server_bintar_dir}/mariadb-test" && ./mtr --force --max-test-fail=20 --suite="{self.suites}"
+cd "{self.server_bintar_dir}/mariadb-test" && ./mtr --force --max-test-fail=20 --suite="{self.suites}" --vardir={_MTR_VARDIR} || ({_save_mtr_logs(self.save_logs_path, find_binaries)})
 """
             ),
         ]

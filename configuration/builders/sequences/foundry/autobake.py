@@ -46,6 +46,7 @@ _BEST_EFFORT_OPTIONS = StepOptions(flunkOnWarnings=True)
 # builds have no tarbuildnum and go under "mirror" (":~" also catches empty).
 _RUN_DIR = "foundry/%(prop:mariadb_version)s-%(prop:tarbuildnum:~mirror)s"
 _LOGS_DIR = f"{_RUN_DIR}/%(prop:foundry_revision)s/logs/%(prop:buildername)s"
+_SAVE_LOGS_PATH = f"/packages/{_LOGS_DIR}"
 
 
 # The server source is chosen per build: the dispatcher sets tarbuildnum for
@@ -81,15 +82,11 @@ def _download_foundry_step(config: DockerConfig):
     )
 
 
-def _run_plugin_mtr_suite_step(config: DockerConfig, package_type: str):
+def _run_mtr_step(config: DockerConfig, command):
     # One MTR run covers every plugin, so logs are per run.
     return InContainer(
         ShellStep(
-            command=RunPluginMTRSuite(
-                package_type,
-                "%(prop:plugin_suites)s",
-                save_logs_path=f"/packages/{_LOGS_DIR}",
-            ),
+            command=command,
             url=URL(url=f"{os.environ['ARTIFACTS_URL']}/{_LOGS_DIR}", url_text="Logs"),
             options=StepOptions(doStepIf=_has_suites),
         ),
@@ -265,7 +262,14 @@ def packages(
             container_commit=True,
         )
     )
-    sequence.add_step(_run_plugin_mtr_suite_step(base_config, package_type))
+    sequence.add_step(
+        _run_mtr_step(
+            base_config,
+            RunPluginMTRSuite(
+                package_type, "%(prop:plugin_suites)s", save_logs_path=_SAVE_LOGS_PATH
+            ),
+        )
+    )
     return sequence
 
 
@@ -314,14 +318,13 @@ def bintar(
         )
     )
     sequence.add_step(
-        InContainer(
-            ShellStep(
-                command=RunPluginMTRSuiteFromBintar(
-                    _SERVER_BINTAR_PROP, "%(prop:plugin_suites)s"
-                ),
-                options=StepOptions(doStepIf=_has_suites),
+        _run_mtr_step(
+            config,
+            RunPluginMTRSuiteFromBintar(
+                _SERVER_BINTAR_PROP,
+                "%(prop:plugin_suites)s",
+                save_logs_path=_SAVE_LOGS_PATH,
             ),
-            docker_environment=config,
         )
     )
     return sequence
