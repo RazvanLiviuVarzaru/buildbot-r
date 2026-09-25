@@ -1,5 +1,5 @@
 from abc import ABC, abstractmethod
-from collections import namedtuple
+from collections import Counter, namedtuple
 from dataclasses import dataclass
 from typing import Optional
 
@@ -64,3 +64,16 @@ class BaseStep(ABC):
 
     @abstractmethod
     def generate(self): ...
+
+
+def check_repeated_step_names(names) -> None:
+    # A build tells repeated step names apart by appending "_1", "_2", ...,
+    # without truncating, so a repeated name must leave room for that too.
+    for name, count in Counter(names).items():
+        suffix = f"_{count - 1}"
+        if count > 1 and len(name) + len(suffix) > BaseStep.MAX_NAME_LENGTH:
+            raise ValueError(
+                f"step name {name!r} is used {count} times; with the "
+                f"{suffix!r} buildbot adds it is over "
+                f"{BaseStep.MAX_NAME_LENGTH} characters"
+            )

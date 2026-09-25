@@ -4,7 +4,7 @@ including the names derived from it."""
 import pathlib
 import unittest
 
-from configuration.steps.base import BaseStep
+from configuration.steps.base import BaseStep, check_repeated_step_names
 from configuration.steps.commands.base import Command
 from configuration.steps.commands.infra import ContainerCommit
 from configuration.steps.remote import PropFromShellStep, ShellStep
@@ -54,6 +54,22 @@ class TestStepNameLimit(unittest.TestCase):
         ShellStep(command=_StubCommand(name))  # fits on its own
         with self.assertRaises(ValueError):
             PropFromShellStep(command=_StubCommand(name), property="some_property")
+
+
+class TestRepeatedStepNames(unittest.TestCase):
+    """A build appends "_1", "_2", ... to repeated step names."""
+
+    def test_unique_names_may_use_the_whole_limit(self):
+        check_repeated_step_names(["x" * LIMIT, "y" * LIMIT])
+
+    def test_repeated_name_that_leaves_room_for_the_suffix(self):
+        check_repeated_step_names(["x" * (LIMIT - 2)] * 2)  # "_1"
+        check_repeated_step_names(["x" * (LIMIT - 3)] * 11)  # "_10"
+
+    def test_rejects_a_repeated_name_without_room(self):
+        for length, count in ((LIMIT - 1, 2), (LIMIT - 2, 11)):
+            with self.assertRaises(ValueError):
+                check_repeated_step_names(["x" * length] * count)
 
 
 if __name__ == "__main__":

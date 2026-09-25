@@ -524,7 +524,7 @@ class DownloadServerBintar(Command):
     # (<ci_url>/<tarbuildnum>/<server builder>).
     def __init__(self, base_url: str, workdir: PurePath = PurePath(".")):
         self.base_url = base_url
-        super().__init__(name="Download server bintar", workdir=workdir)
+        super().__init__(name="Download CI bintar", workdir=workdir)
 
     def as_cmd_arg(self) -> list[str]:
         return [
@@ -549,7 +549,9 @@ class DownloadServerBintarFromMirror(Command):
     ):
         self.mirror_url = mirror_url
         self.mirror_bintar = mirror_bintar
-        super().__init__(name="Download server bintar", workdir=workdir)
+        # Named apart from DownloadServerBintar: buildbot suffixes a repeated
+        # step name with "_1", which would overflow the 50 characters.
+        super().__init__(name="Download mirror bintar", workdir=workdir)
 
     def as_cmd_arg(self) -> list[str]:
         return [
