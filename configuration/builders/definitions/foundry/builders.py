@@ -6,7 +6,7 @@ import yaml
 from configuration.builders.base import GenericBuilder
 from configuration.builders.common import docker_config
 from configuration.builders.definitions.foundry import sources
-from configuration.builders.sequences.foundry import autobake, dispatcher
+from configuration.builders.sequences.foundry import autobake, dispatcher, storage
 
 with open(Path(__file__).parent / "foundry.yaml") as f:
     _FOUNDRY_CONFIG = yaml.safe_load(f)
@@ -17,13 +17,20 @@ _MIRROR_URL = _FOUNDRY_CONFIG["server"]["mirror_url"]
 _ARCH_OVERRIDES = _FOUNDRY_CONFIG["arch"]
 
 
+def _docker_config(**kwargs):
+    # Foundry's containers mount its own storage as /packages; see storage.py.
+    return docker_config(
+        packages_dir=storage.PACKAGES_DIR, artifacts_url=storage.ARTIFACTS_URL, **kwargs
+    )
+
+
 def _base_image_config(package_config, arch_override):
     # The target's plain upstream image, where rpm/deb packages are tested. A
     # full image reference, hence the empty repository.
     image = package_config["base_image"]
     if "base_image_prefix" in arch_override:
         image = arch_override["base_image_prefix"] + image.rsplit("/", 1)[-1]
-    config = docker_config(
+    config = _docker_config(
         image=image,
         platform=arch_override.get("platform"),
         additional_bind_mounts=[
@@ -49,7 +56,7 @@ for package_type, type_config, package, package_config in _TARGETS:
     for arch in package_config["arch"]:
         arch_override = _ARCH_OVERRIDES.get(arch, {})
         platform = arch_override.get("platform")
-        container_config = docker_config(
+        container_config = _docker_config(
             image=f"{package_config['image']}{arch_override.get('image_suffix', '')}",
             platform=platform,
         )
@@ -163,7 +170,7 @@ DISPATCHER_BUILDER = GenericBuilder(
     name=_DISPATCHER["builder"],
     sequences=[
         dispatcher.trigger_foundry(
-            docker_config(image=_DISPATCHER["image"]), _dispatch_specs()
+            _docker_config(image=_DISPATCHER["image"]), _dispatch_specs()
         )
     ],
 )

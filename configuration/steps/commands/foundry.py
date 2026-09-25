@@ -114,8 +114,8 @@ fi
 
 class ArchiveFoundrySource(Command):
     # Writes a `git archive` of the checked-out commit to archive (under
-    # /packages, served as ARTIFACTS_URL) with a sha256sums.txt, and prints
-    # its SHA-256. Refuses submodules, which git archive would leave out.
+    # /packages, which nginx serves) with a sha256sums.txt, and prints its
+    # SHA-256. Refuses submodules, which git archive would leave out.
     def __init__(self, archive: str, workdir: PurePath = PurePath(".")):
         self.archive = archive
         super().__init__(name="Archive Foundry", workdir=workdir)

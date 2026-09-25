@@ -1,10 +1,9 @@
-import os
-
 from configuration.builders.infra.runtime import (
     BuildSequence,
     DockerConfig,
     InContainer,
 )
+from configuration.builders.sequences.foundry import storage
 from configuration.steps.base import StepOptions
 from configuration.steps.commands import trigger
 from configuration.steps.commands.base import BashCommand
@@ -25,8 +24,8 @@ _EVENT_ENV = [
 ]
 
 # The Foundry archive for the package builds, one directory per dispatcher
-# build. /packages is served as ARTIFACTS_URL.
-_ARCHIVE = "foundry/sources/%(prop:buildnumber)s/foundry-%(prop:foundry_head)s.tar.gz"
+# build, in Foundry's storage (see storage.py).
+_ARCHIVE = "sources/%(prop:buildnumber)s/foundry-%(prop:foundry_head)s.tar.gz"
 
 
 def _clone_foundry_step(config: DockerConfig):
@@ -93,7 +92,7 @@ def trigger_foundry(config: DockerConfig, trigger_specs):
     )
     sequence.add_step(
         trigger.FoundryDispatch(
-            trigger_specs, source_url=f"{os.environ['ARTIFACTS_URL']}/{_ARCHIVE}"
+            trigger_specs, source_url=f"{storage.ARTIFACTS_URL}/{_ARCHIVE}"
         )
     )
     return sequence

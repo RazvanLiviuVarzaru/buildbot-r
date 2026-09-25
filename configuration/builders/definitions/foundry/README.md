@@ -39,13 +39,13 @@ A version's `targets` must be on the mirrors for that version. A platform that i
 
 ## Saved files
 
-Under `/packages`, served as `ARTIFACTS_URL`:
+Foundry has its own storage, apart from the server's, as the connectors do: `FOUNDRY_PACKAGES_DIR` on the worker hosts, mounted as `/packages` in Foundry's containers, `/srv/buildbot/foundry` on the master host, served at `<ARTIFACTS_URL>/foundry`:
 
 | What | Where |
 | --- | --- |
-| Packages, with `sha256sums.txt` | `foundry/<version>-<tarbuildnum\|mirror>/<plugin>/<revision>/<builder>/` |
-| MTR logs of a failed run | `foundry/<version>-<tarbuildnum\|mirror>/<revision>/logs/<builder>/` |
-| Foundry archive, with `sha256sums.txt` | `foundry/sources/<dispatcher build>/foundry-<commit>.tar.gz` |
+| Packages, with `sha256sums.txt` | `<version>-<tarbuildnum\|mirror>/<plugin>/<revision>/<builder>/` |
+| MTR logs of a failed run | `<version>-<tarbuildnum\|mirror>/<revision>/logs/<builder>/` |
+| Foundry archive, with `sha256sums.txt` | `sources/<dispatcher build>/foundry-<commit>.tar.gz` |
 
 Pull requests save no packages, but still publish the archive their builds need.
 

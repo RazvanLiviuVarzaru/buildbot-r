@@ -1,10 +1,9 @@
-import os
-
 from configuration.builders.infra.runtime import (
     BuildSequence,
     DockerConfig,
     InContainer,
 )
+from configuration.builders.sequences.foundry import storage
 from configuration.steps.base import StepOptions
 from configuration.steps.commands.base import URL
 from configuration.steps.commands.foundry import (
@@ -44,7 +43,7 @@ _BEST_EFFORT_OPTIONS = StepOptions(flunkOnWarnings=True)
 
 # Saved packages and MTR logs, per MariaDB version and server source. Mirror
 # builds have no tarbuildnum and go under "mirror" (":~" also catches empty).
-_RUN_DIR = "foundry/%(prop:mariadb_version)s-%(prop:tarbuildnum:~mirror)s"
+_RUN_DIR = "%(prop:mariadb_version)s-%(prop:tarbuildnum:~mirror)s"
 _LOGS_DIR = f"{_RUN_DIR}/%(prop:foundry_revision)s/logs/%(prop:buildername)s"
 _SAVE_LOGS_PATH = f"/packages/{_LOGS_DIR}"
 
@@ -87,7 +86,7 @@ def _run_mtr_step(config: DockerConfig, command):
     return InContainer(
         ShellStep(
             command=command,
-            url=URL(url=f"{os.environ['ARTIFACTS_URL']}/{_LOGS_DIR}", url_text="Logs"),
+            url=URL(url=f"{storage.ARTIFACTS_URL}/{_LOGS_DIR}", url_text="Logs"),
             options=StepOptions(doStepIf=_has_suites),
         ),
         docker_environment=config,
@@ -117,9 +116,7 @@ def _save_packages_step(config: DockerConfig):
         ShellStep(
             command=SavePluginPackages(destination=destination),
             env_vars=_BUILT_PLUGINS_ENV,
-            url=URL(
-                url=f"{os.environ['ARTIFACTS_URL']}/{_RUN_DIR}", url_text="Packages"
-            ),
+            url=URL(url=f"{storage.ARTIFACTS_URL}/{_RUN_DIR}", url_text="Packages"),
             options=StepOptions(doStepIf=_not_pull_request),
         ),
         docker_environment=config,

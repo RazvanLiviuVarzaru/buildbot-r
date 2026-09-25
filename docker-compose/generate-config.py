@@ -78,6 +78,7 @@ services:
       - /srv/buildbot/galera_packages:/srv/buildbot/galera_packages:ro
       - /srv/buildbot/helper_files:/srv/buildbot/helper_files:ro
       - /srv/buildbot/connectors:/srv/buildbot/connectors:ro
+      - /srv/buildbot/foundry:/srv/buildbot/foundry:ro
       - /srv/buildbot/cloud-init:/srv/buildbot/cloud-init:ro
       - ./certbot/www/:/var/www/certbot/:ro
       - ./certbot/ssl/:/etc/nginx/ssl/:ro
