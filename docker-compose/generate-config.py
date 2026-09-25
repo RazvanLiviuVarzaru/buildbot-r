@@ -170,6 +170,7 @@ def main(args):
         master_volumes[master].append(
             "/srv/buildbot/connectors:/srv/buildbot/connectors"
         )
+        master_volumes[master].append("/srv/buildbot/foundry:/srv/buildbot/foundry")
 
     # Capture the current environment variables' keys
     current_env_keys = set(os.environ.keys())
