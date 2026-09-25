@@ -8,15 +8,20 @@ _REPOSITORY = foundry_builders.FOUNDRY_REPOSITORY
 
 def _server_source_parameters():
     # Per MariaDB version: where its server packages come from, and the
-    # tarbuildnum for sources.CI_TARBALL.
+    # tarbuildnum for sources.CI_TARBALL. A version not on the mirrors yet
+    # can only use a CI tarball, and is skipped by default.
     parameters = []
-    for version in foundry_builders.FOUNDRY_MARIADB_VERSIONS:
+    for version, version_config in foundry_builders.FOUNDRY_MARIADB_VERSIONS.items():
+        mirrored = sources.on_mirrors(version_config)
         parameters.append(
             util.ChoiceStringParameter(
                 name=sources.source_property(version),
-                label=f"MariaDB {version}: server packages",
-                choices=sources.CHOICES,
-                default=sources.DEFAULT,
+                label=(
+                    f"MariaDB {version}: server packages"
+                    + ("" if mirrored else " (not on the mirrors yet)")
+                ),
+                choices=sources.choices(mirrored),
+                default=sources.default(mirrored),
             )
         )
         parameters.append(

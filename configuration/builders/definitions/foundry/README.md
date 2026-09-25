@@ -15,7 +15,7 @@ Builds each plugin of [MariaDB/foundry](https://github.com/MariaDB/foundry) (one
 **Force**, open to `access.force_users` in `foundry.yaml` (other MariaDB members can still Rebuild):
 
 - an optional Foundry commit (full SHA), else the tip of `main`;
-- per MariaDB version: the MariaDB Server mirrors (default), a ci.mariadb.org `tarbuildnum`, or skip.
+- per MariaDB version: the MariaDB Server mirrors (default), a ci.mariadb.org `tarbuildnum`, or skip. A version not on the mirrors yet offers only a `tarbuildnum` or skip, and defaults to skip.
 
 **Pull request**: builds only the plugins it changes (all of them if it changes `CMakeLists.txt` or `run.cmake`), against the mirrors, and saves no packages. Changes are read with `git`, as the GitHub hook doesn't record them.
 
@@ -35,7 +35,7 @@ The build step reads each plugin's outcome from the summary `run.cmake` prints (
 
 `foundry.yaml` holds the repository, server sources, dispatcher, the OS × architecture matrix, the MariaDB versions and their targets, and who may Force. The MariaDB version is a build property, so the same builders serve every version. Plugins, changed files, MTR suites and the newest mirrored release are found at run time, so adding a plugin needs no change here.
 
-A version's `targets` must be on the mirrors for that version. A platform that is only on CI so far goes under `ci_only`, which is built only when Force picks a CI `tarbuildnum`.
+A version's `targets` must be on the mirrors for that version. A platform that is only on CI so far goes under `ci_only`, which is built only when Force picks a CI `tarbuildnum`. A version not on the mirrors at all, such as a new series, lists its platforms under `ci_only` only; pull requests skip it.
 
 ## Saved files
 

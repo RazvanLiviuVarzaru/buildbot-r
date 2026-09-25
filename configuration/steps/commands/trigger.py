@@ -148,18 +148,25 @@ class _FoundryDispatchStep(BuildbotTrigger):
 
         for spec in self.trigger_specs:
             version = spec["mariadb_version"]
+            mirrored = spec["mirrored"]
             if is_pull_request:
+                if not mirrored:
+                    plan.append(f"{version}: skipped, not on the mirrors yet")
+                    continue
                 source = sources.MIRROR
                 tarbuildnum = ""
             else:
-                source = self.getProperty(spec["source_property"], sources.DEFAULT)
+                source = self.getProperty(
+                    spec["source_property"], sources.default(mirrored)
+                )
                 tarbuildnum = self._prop(spec["tarbuildnum_property"])
 
-            if source not in sources.CHOICES:
+            allowed = sources.choices(mirrored)
+            if source not in allowed:
                 # Only reachable through a hand-edited rebuild.
                 errors.append(
-                    f"{version}: unknown package source {source!r} -- expected "
-                    f"one of {', '.join(repr(c) for c in sources.CHOICES)}"
+                    f"{version}: package source {source!r} isn't available -- "
+                    f"expected one of {', '.join(repr(c) for c in allowed)}"
                 )
                 continue
 
@@ -170,8 +177,9 @@ class _FoundryDispatchStep(BuildbotTrigger):
             if source == sources.CI_TARBALL and not tarbuildnum:
                 errors.append(
                     f"{version}: set to '{sources.CI_TARBALL}' but no tarbuildnum "
-                    f"was given -- supply one, or pick '{sources.MIRROR}' or "
-                    f"'{sources.SKIP}' instead"
+                    "was given -- supply one, or pick "
+                    + " or ".join(repr(c) for c in allowed if c != sources.CI_TARBALL)
+                    + " instead"
                 )
                 continue
 
@@ -189,7 +197,8 @@ class _FoundryDispatchStep(BuildbotTrigger):
             else:
                 plan.append(f"{version}: MariaDB Server mirrors")
 
-            schedulers_and_properties.append((spec["scheduler"], properties))
+            if spec["scheduler"]:
+                schedulers_and_properties.append((spec["scheduler"], properties))
             if spec["ci_only_targets"]:
                 # Not on the mirrors yet, so only built from a CI tarball.
                 ci_only = ", ".join(spec["ci_only_targets"])
@@ -197,7 +206,8 @@ class _FoundryDispatchStep(BuildbotTrigger):
                     schedulers_and_properties.append(
                         (spec["ci_only_scheduler"], properties)
                     )
-                    plan.append(f"{version}: also CI-only targets: {ci_only}")
+                    also = "also " if spec["scheduler"] else ""
+                    plan.append(f"{version}: {also}CI-only targets: {ci_only}")
                 else:
                     plan.append(f"{version}: skipped CI-only targets: {ci_only}")
 
@@ -226,7 +236,7 @@ class FoundryDispatch:
             name="Trigger Foundry Builders",
             # Every Triggerable the step may pick.
             schedulerNames=sorted(
-                {spec["scheduler"] for spec in self.trigger_specs}
+                {spec["scheduler"] for spec in self.trigger_specs if spec["scheduler"]}
                 | {
                     spec["ci_only_scheduler"]
                     for spec in self.trigger_specs

@@ -7,9 +7,23 @@ MIRROR = "Use MariaDB Server mirrors"
 CI_TARBALL = "Use a ci.mariadb.org tarball"
 SKIP = "Skip this version"
 
-# Dropdown order; the first is the default.
+# Dropdown order.
 CHOICES = [MIRROR, CI_TARBALL, SKIP]
-DEFAULT = MIRROR
+
+
+# A version is on the mirrors once it has targets there. One that isn't yet,
+# e.g. a new series, lists its platforms under ci_only only: it builds from a
+# CI tarball when asked, and is skipped otherwise.
+def on_mirrors(version_config: dict) -> bool:
+    return bool(version_config["targets"])
+
+
+def choices(mirrored: bool) -> list[str]:
+    return CHOICES if mirrored else [CI_TARBALL, SKIP]
+
+
+def default(mirrored: bool) -> str:
+    return MIRROR if mirrored else SKIP
 
 
 def _slug(mariadb_version: str) -> str:
@@ -27,7 +41,7 @@ def tarbuildnum_property(mariadb_version: str) -> str:
     return f"foundry_tarbuildnum_{_slug(mariadb_version)}"
 
 
-# Triggerable for this version's builders, whatever the source.
+# Triggerable for this version's targets, whatever the source.
 def scheduler_name(mariadb_version: str) -> str:
     return f"foundry_{_slug(mariadb_version)}_scheduler"
 

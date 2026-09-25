@@ -101,6 +101,9 @@ for version, version_config in FOUNDRY_MARIADB_VERSIONS.items():
         ), f"Unknown foundry package: {package}"
     both = set(version_config["targets"]) & set(version_config["ci_only"])
     assert not both, f"{version}: in both targets and ci_only: {sorted(both)}"
+    assert (
+        version_config["targets"] or version_config["ci_only"]
+    ), f"{version}: no targets or ci_only"
 
 FOUNDRY_FORCE_USERS = _FOUNDRY_CONFIG["access"]["force_users"]
 
@@ -113,13 +116,14 @@ def _builder_names(packages):
     ]
 
 
-# Builders per Triggerable, keyed by scheduler name. A version gets a second
-# Triggerable only if it has ci_only targets.
+# Builders per Triggerable, keyed by scheduler name: one for a version's
+# targets, if it has any, and one for its ci_only targets, if it has any.
 FOUNDRY_TRIGGERABLE_BUILDERS = {}
 for version, version_config in FOUNDRY_MARIADB_VERSIONS.items():
-    FOUNDRY_TRIGGERABLE_BUILDERS[sources.scheduler_name(version)] = _builder_names(
-        version_config["targets"]
-    )
+    if version_config["targets"]:
+        FOUNDRY_TRIGGERABLE_BUILDERS[sources.scheduler_name(version)] = _builder_names(
+            version_config["targets"]
+        )
     if version_config["ci_only"]:
         FOUNDRY_TRIGGERABLE_BUILDERS[sources.ci_only_scheduler_name(version)] = (
             _builder_names(version_config["ci_only"])
@@ -134,7 +138,13 @@ def _dispatch_specs():
             "mariadb_version": version,
             "source_property": sources.source_property(version),
             "tarbuildnum_property": sources.tarbuildnum_property(version),
-            "scheduler": sources.scheduler_name(version),
+            "mirrored": sources.on_mirrors(version_config),
+            # None for a version not on the mirrors yet: it has no targets.
+            "scheduler": (
+                sources.scheduler_name(version)
+                if sources.on_mirrors(version_config)
+                else None
+            ),
             # Fired too on CI tarball runs; None without ci_only targets.
             "ci_only_scheduler": (
                 sources.ci_only_scheduler_name(version)
