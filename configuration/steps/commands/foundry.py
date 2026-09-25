@@ -1,8 +1,13 @@
+import re
 from pathlib import PurePath
 
-from buildbot.plugins import util
+from twisted.internet import defer
 
-from configuration.steps.commands.base import Command
+from buildbot.plugins import util
+from buildbot.process import logobserver
+from buildbot.process.results import FAILURE, SUCCESS, WARNINGS, Results
+
+from configuration.steps.commands.base import Command, ShellCommandWithURL
 
 # Plugin lists reach these commands through the environment rather than
 # util.Interpolate, so their scripts stay free of Interpolate's %-escaping --
@@ -15,30 +20,15 @@ INSTALLED_PLUGINS_ENV = "FOUNDRY_INSTALLED_PLUGINS"
 BRANCH_ENV = "FOUNDRY_BRANCH"
 BASE_BRANCH_ENV = "FOUNDRY_BASE_BRANCH"
 
-# Shared by every command that has to tell apart the plugins that built from
-# the ones that didn't.
+# For the commands that work through the plugins one at a time in the shell
+# and report how many made it. Building has its outcome decided on the master
+# instead, off run.cmake's own summary -- see BuildPluginsShellCommand.
 #
-# run.cmake takes a list of plugins and keeps going after one fails --
-# message(SEND_ERROR), not FATAL_ERROR -- so a single invocation routinely
-# leaves a mix behind. It copies every plugin's packages into the workspace
-# root together (`file(COPY ${packages} DESTINATION "${b}/..")`), so the root
-# can't tell you who produced what; each plugin's own build tree,
-# <plugin>.build/, can. A package in there means that plugin built.
-#
-# Only sound on a fresh workspace: a package left over from an earlier run
-# would read as a success. Every foundry builder starts from a clean
-# container and checkout, so that holds here.
+# run.cmake copies every plugin's packages into the workspace root together
+# (`file(COPY ${packages} DESTINATION "${b}/..")`), so the root can't tell you
+# who produced what; each plugin's own build tree, <plugin>.build/, can. That
+# is where every command below takes a plugin's packages from.
 _PLUGIN_HELPERS = """
-built_plugins() {
-    out=""
-    for p in $1; do
-        for f in "$p.build"/*.rpm "$p.build"/*.deb "$p.build"/*.tar.gz; do
-            if [ -e "$f" ]; then out="$out $p"; break; fi
-        done
-    done
-    echo $out
-}
-
 # Everything in $1 that is not in $2.
 missing_plugins() {
     out=""
@@ -51,8 +41,9 @@ missing_plugins() {
     echo $out
 }
 
-# Best-effort verdict shared by the build and install steps, reported through
-# the exit code -- see ShellStep.PARTIAL_SUCCESS_DECODE_RC.
+# Best-effort verdict, reported through the exit code -- see
+# ShellStep.PARTIAL_SUCCESS_DECODE_RC. The same three outcomes
+# BuildPluginsShellCommand gives the build step.
 #   0  every plugin made it
 #   2  some did, some didn't: a warning on the step, a failure on the build
 #   1  none did: nothing downstream can do anything useful
@@ -148,9 +139,15 @@ class BuildPlugins(Command):
     # Builds every plugin the dispatcher discovered ($FOUNDRY_PLUGINS) in one
     # run.cmake invocation, which is what makes the best-effort behaviour
     # possible: run.cmake works through the whole list regardless of
-    # individual failures, so one broken plugin doesn't hide the others'
-    # results. cmake's own exit code only says "something failed", so the
-    # verdict is recomputed per plugin from <plugin>.build/.
+    # individual failures -- message(SEND_ERROR), not FATAL_ERROR -- so one
+    # broken plugin doesn't hide the others' results. cmake's own exit code
+    # only says "something failed"; run this with BuildPluginsShellCommand,
+    # which reads each plugin's outcome off the summary run.cmake prints.
+    #
+    # One make job per CPU the builder is allotted: the jobs property, set by
+    # get_config(jobs=...) in master-migration/master.cfg and counted against
+    # the worker's total_jobs. Left unset, run.cmake would use every logical
+    # core.
     def __init__(
         self,
         package_type: str = None,
@@ -172,15 +169,16 @@ class BuildPlugins(Command):
             if self.cmake_prefix_path
             else f"-D{self.package_type}=1 "
         )
-        # Interpolate is needed for cmake_prefix_path, which is a property
-        # reference; the rest of the script deliberately avoids % and {}.
+        # Interpolate is needed for cmake_prefix_path and jobs, which are
+        # property references; the rest of the script deliberately avoids %
+        # and {}.
         return [
             "bash",
             "-exc",
             util.Interpolate(
                 f"""
-set -uo pipefail
-{_PLUGIN_HELPERS}
+set -euo pipefail
+
 plugins="${{{PLUGINS_ENV}}}"
 if [ -z "$plugins" ]; then
     echo "No plugins to build" >&2
@@ -188,22 +186,182 @@ if [ -z "$plugins" ]; then
 fi
 
 echo "Building: $plugins"
-set +e
-cmake {cmake_define}-P run.cmake $plugins
-set -e
-
-built=$(built_plugins "$plugins")
-failed=$(missing_plugins "$plugins" "$built")
-
-echo "Built:  ${{built:-(none)}}"
-echo "Failed: ${{failed:-(none)}}"
-
-verdict "$built" "$failed" \\
-    "No plugin built -- see the cmake output above" \\
-    "These plugins failed to build: $failed"
+CMAKE_BUILD_PARALLEL_LEVEL=%(prop:jobs:-1)s cmake {cmake_define}-P run.cmake $plugins
 """
             ),
         ]
+
+
+class FoundrySummary:
+    # The machine-readable summary run.cmake prints once it has tried every
+    # plugin: one line per plugin, then the totals.
+    #
+    #   -- FOUNDRY-RESULT: PASS <plugin> <package file>...
+    #   -- FOUNDRY-RESULT: FAIL <plugin> <configure|build|package> <reason>
+    #   -- FOUNDRY-SUMMARY: <failed> of <total> plugins failed
+    #
+    # <plugin> is the plugin directory name, as passed to run.cmake. The
+    # package files are named by the plugin's CPack settings, so they need not
+    # match it; they sit in <plugin>.build/.
+    #
+    # Fed the build step's output a line at a time; plain Python so it can be
+    # unit tested without buildbot.
+    _LINE = re.compile(r"-- FOUNDRY-(RESULT|SUMMARY): (.*)")
+
+    def __init__(self):
+        self.packages = {}  # plugin -> its package files, from PASS lines
+        self.failures = {}  # plugin -> "<stage>: <reason>", from FAIL lines
+        self.complete = False  # the FOUNDRY-SUMMARY line was seen
+
+    # Called on the master's reactor thread for every line of build output,
+    # so every line that isn't part of the summary is turned away by the
+    # prefix check alone.
+    def feed(self, line: str):
+        if not line.startswith("-- FOUNDRY-"):
+            return
+        match = self._LINE.fullmatch(line.rstrip())
+        if not match:
+            return
+        kind, rest = match.groups()
+        if kind == "SUMMARY":
+            self.complete = True
+            return
+        fields = rest.split()
+        if len(fields) < 2:
+            return
+        verdict, plugin, details = fields[0], fields[1], fields[2:]
+        if verdict == "PASS":
+            self.packages[plugin] = details
+        elif verdict == "FAIL":
+            stage, *reason = details or ["unknown"]
+            self.failures[plugin] = f"{stage}: {' '.join(reason)}"
+
+    def evaluate(self, requested: list[str], command_ok: bool):
+        # Returns (result, built plugins, {failed plugin: why}, a one-line
+        # description), given the plugins run.cmake was asked to build and
+        # whether it exited 0.
+        built = list(self.packages)
+        failures = dict(self.failures)
+        # A requested plugin with no line of its own failed too: run.cmake
+        # skips, without a word, any argument that looks like a file name.
+        for plugin in requested:
+            if plugin not in self.packages and plugin not in failures:
+                failures[plugin] = "not reported by run.cmake"
+        if not self.complete:
+            return FAILURE, built, failures, "run.cmake printed no summary"
+
+        description = f"built {len(built)} of {len(built) + len(failures)} plugins"
+        if failures:
+            description += "; failed: " + ", ".join(
+                f"{plugin} ({why})" for plugin, why in failures.items()
+            )
+        if not built:
+            return FAILURE, built, failures, description
+        if failures:
+            return WARNINGS, built, failures, description
+        if not command_ok:
+            # Every plugin passed, yet cmake failed: something outside the
+            # per-plugin loop went wrong, and the log has to say what.
+            return FAILURE, built, failures, f"{description}, but cmake failed"
+        return SUCCESS, built, failures, description
+
+
+class _FoundrySummaryObserver(logobserver.LogLineObserver):
+    # cmake prints STATUS messages, the summary among them, on stdout. stderr
+    # carries bash's -x trace, which echoes the script's own lines.
+    def __init__(self, summary: FoundrySummary):
+        super().__init__()
+        self.summary = summary
+
+    def outLineReceived(self, line):
+        self.summary.feed(line)
+
+
+class BuildPluginsShellCommand(ShellCommandWithURL):
+    # The buildbot step to run BuildPlugins with: pass it as ShellStep's
+    # step_class. It decides the result from run.cmake's summary (see
+    # FoundrySummary) rather than from cmake's exit code:
+    #
+    #   SUCCESS   every plugin built
+    #   WARNINGS  some did, some didn't -- pair with flunkOnWarnings, so the
+    #             build still fails
+    #   FAILURE   none did, or run.cmake never got as far as its summary
+    #
+    # The plugins asked for are the foundry_plugins property, the source of
+    # $FOUNDRY_PLUGINS. The outcome goes into properties:
+    #
+    #   built_plugins    space-separated; what the later steps work off, as
+    #                    $FOUNDRY_BUILT_PLUGINS
+    #   failed_plugins   space-separated
+    #   plugin_packages  {plugin: [package file, ...]} for each built plugin
+    #
+    # Written for both buildbot APIs. Production runs a 2.x fork, where
+    # ShellCommand is an old-style step: it calls evaluateCommand() once the
+    # command has finished and its logs are closed, and that is where the
+    # outcome is decided. Buildbot 3.0 dropped old-style steps: there
+    # ShellCommand.run() returns the exit code's result and never calls
+    # evaluateCommand(), hence the run() override. 2.x calls run() too --
+    # BuildStep.run() is its bridge to old-style start() -- so run() only
+    # concludes when evaluateCommand() hasn't. The log observer and
+    # getResultSummary() are the same in both. Nor does this step need
+    # ShellCommandWithURL's start(), which 3.0+ no longer calls (see its
+    # FIXME): it has no URL to add.
+    #
+    # A stopped step -- the build cancelled, or the worker lost -- gets no
+    # verdict and sets no properties: see _conclude().
+    def __init__(self, **kwargs):
+        super().__init__(**kwargs)
+        self.foundry_summary = FoundrySummary()
+        self.concluded = False
+        self.verdict_line = None
+        self.addLogObserver("stdio", _FoundrySummaryObserver(self.foundry_summary))
+
+    # Buildbot 2.x
+    def evaluateCommand(self, cmd):
+        return self._conclude(cmd.results())
+
+    # Buildbot 3.0+
+    @defer.inlineCallbacks
+    def run(self):
+        result = yield super().run()
+        if self.concluded:
+            # 2.x: super().run() went through start(), and evaluateCommand()
+            # has already decided.
+            return result
+        # New-style steps only finish their logs after run() returns. Finish
+        # stdio now so the observer has seen every line -- buildbot's own
+        # TreeSize does the same.
+        stdio = yield self.getLog("stdio")
+        yield stdio.finish()
+        return self._conclude(result)
+
+    def _conclude(self, command_result) -> int:
+        self.concluded = True
+        if self.stopped:
+            # cmake was cut short, so the summary it never printed says
+            # nothing about the plugins. Record no verdict: buildbot reports
+            # a stopped step as cancelled (or exception) whatever this
+            # returns, and a cancelled build runs nothing that reads the
+            # properties.
+            return command_result
+        requested = str(self.getProperty("foundry_plugins") or "").split()
+        result, built, failures, self.verdict_line = self.foundry_summary.evaluate(
+            requested, command_ok=command_result == SUCCESS
+        )
+        self.setProperty("built_plugins", " ".join(built), self.name)
+        self.setProperty("failed_plugins", " ".join(failures), self.name)
+        self.setProperty(
+            "plugin_packages", dict(self.foundry_summary.packages), self.name
+        )
+        return result
+
+    def getResultSummary(self):
+        if self.verdict_line is None:
+            return super().getResultSummary()
+        summary = self.verdict_line
+        if self.results != SUCCESS:
+            summary += f" ({Results[self.results]})"
+        return {"step": summary}
 
 
 class InstallBuiltPackages(Command):
@@ -214,7 +372,7 @@ class InstallBuiltPackages(Command):
     # <plugin>.build/ rather than the root copies, which is also what makes
     # them attributable to a plugin at all.
     #
-    # Emits the same 0/2/1 best-effort verdict as BuildPlugins.
+    # Emits a 0/2/1 best-effort verdict: see verdict() in _PLUGIN_HELPERS.
     def __init__(self, package_type: str, workdir: PurePath = PurePath(".")):
         self.package_type = package_type
         super().__init__(
@@ -340,26 +498,6 @@ fi
         ]
 
 
-class ListPluginsWithPackages(Command):
-    # Emits, space-separated on stdout, whichever of $FOUNDRY_PLUGINS left a
-    # package in <plugin>.build/ -- for capture into a property (e.g. via
-    # PropFromShellStep) so later steps can work off the plugins that
-    # actually built rather than the ones that were asked for.
-    def __init__(self, workdir: PurePath = PurePath(".")):
-        super().__init__(name="List plugins that built", workdir=workdir)
-
-    def as_cmd_arg(self) -> list[str]:
-        return [
-            "bash",
-            "-exc",
-            f"""
-set -euo pipefail
-{_PLUGIN_HELPERS}
-built_plugins "${{{PLUGINS_ENV}}}"
-""",
-        ]
-
-
 class ListInstalledPlugins(Command):
     # Emits, space-separated on stdout, whichever of $FOUNDRY_BUILT_PLUGINS
     # has all of its packages installed -- the same check
@@ -435,7 +573,7 @@ set -euo pipefail
 for plugin in ${{{BUILT_PLUGINS_ENV}}}; do
     destination="{self.destination}"
     mkdir -p "$destination"
-    for f in "$plugin.build"/*.rpm "$plugin.build"/*.deb "$plugin.build"/*.tar.gz; do
+    for f in "$plugin.build"/*.rpm "$plugin.build"/*.deb "$plugin.build"/*.tar.gz "$plugin.build"/*.zip; do
         [ -e "$f" ] || continue
         cp -r "$f" "$destination"
     done

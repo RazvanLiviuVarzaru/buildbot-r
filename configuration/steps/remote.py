@@ -25,6 +25,10 @@ class ShellStep(BaseStep):
         warn_on_fail (bool): If True, treat non-zero return codes as warnings instead of failures.
         decode_rc (dict): Explicit return-code-to-result mapping, overriding
             warn_on_fail. Return codes absent from it are failures.
+        step_class (type): The buildbot step generate() builds, given the same
+            arguments whatever the class. Defaults to ShellCommandWithURL; a
+            subclass of it can read the command's output to decide the result,
+            e.g. commands/foundry.py's BuildPluginsShellCommand.
     Args:
     """
 
@@ -48,6 +52,7 @@ class ShellStep(BaseStep):
         timeout=1200,  # Default timeout in seconds
         warn_on_fail=False,
         decode_rc: dict = None,
+        step_class: type = ShellCommandWithURL,
     ):
         if env_vars is None:
             env_vars = []
@@ -59,6 +64,7 @@ class ShellStep(BaseStep):
         self.secret_env_vars = secret_env_vars
         self.url = url
         self.timeout = timeout
+        self.step_class = step_class
         assert isinstance(command, Command)
         super().__init__(command.name, options)
         self.prefix_cmd = []
@@ -71,7 +77,7 @@ class ShellStep(BaseStep):
 
     def generate(self) -> IBuildStep:
         workdir = self._set_workdir()
-        return ShellCommandWithURL(
+        return self.step_class(
             name=self.name,
             command=[*self.prefix_cmd, *self.command.as_cmd_arg()],
             interruptSignal=self.interrupt_signal,

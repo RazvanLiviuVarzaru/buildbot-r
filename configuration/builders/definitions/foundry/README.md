@@ -69,6 +69,18 @@ A run builds every discovered plugin in one `run.cmake` invocation, which keeps 
 
 The partial case is a warning on the step so you can open it and see which plugin failed, but `flunkOnWarnings` still fails the run: a partly working build is never reported green.
 
+The build step takes each plugin's outcome from the summary `run.cmake` prints once it has tried them all, not from cmake's exit code, which only says whether anything failed:
+
+```text
+-- FOUNDRY-RESULT: PASS <plugin> <package file>...
+-- FOUNDRY-RESULT: FAIL <plugin> <configure|build|package> <reason>
+-- FOUNDRY-SUMMARY: <failed> of <total> plugins failed
+```
+
+A requested plugin that the summary leaves out counts as failed, and a run that never gets as far as the summary fails outright. The step's own summary names each failed plugin and the stage it failed at. The outcome is also kept in build properties: `built_plugins` and `failed_plugins`, space-separated, and `plugin_packages`, the package files each built plugin produced.
+
+`run.cmake` runs as many make jobs as the builder's `jobs` in `master-migration/master.cfg` (through `CMAKE_BUILD_PARALLEL_LEVEL`), which is 1 for every Foundry builder. Left to itself it would use every core, on a worker that runs several of these builds at once.
+
 Each stage narrows the list it hands to the next — requested, then built, then installed. MTR only runs suites belonging to plugins that installed, because a suite MariaDB cannot find aborts the entire test run. With a single plugin in scope, the common case for a pull request, any failure is simply a failure.
 
 ## Configured vs. discovered
@@ -129,7 +141,7 @@ Pull request builds save nothing.
 | `builders.py` | Turns that config into builders and schedulers |
 | `sources.py` | The three package-source choices and their property names |
 | `../../sequences/foundry/` | Step sequences: `autobake.py` (deb/rpm/bintar), `dispatcher.py` |
-| `../../../steps/commands/foundry.py` | The commands each step runs |
+| `../../../steps/commands/foundry.py` | The commands each step runs, and the build step that reads `run.cmake`'s summary |
 | `../../../schedulers/foundry.py` | Force scheduler, pull request scheduler, Triggerables |
 
 The force and pull request schedulers are loaded by `master-web`, which serves the UI and receives the GitHub webhook. The dispatcher and package builders run on `master-migration`, which owns their workers.

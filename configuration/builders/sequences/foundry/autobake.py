@@ -13,13 +13,13 @@ from configuration.steps.commands.foundry import (
     INSTALLED_PLUGINS_ENV,
     PLUGINS_ENV,
     BuildPlugins,
+    BuildPluginsShellCommand,
     DiscoverPluginMTRSuites,
     DownloadServerBintar,
     DownloadServerBintarFromMirror,
     ExtractPluginBintarIntoServerBintar,
     InstallBuiltPackages,
     ListInstalledPlugins,
-    ListPluginsWithPackages,
     PrepareBaseImage,
     RunPluginMTRSuite,
     RunPluginMTRSuiteFromBintar,
@@ -142,26 +142,16 @@ def _run_plugin_mtr_suite_step(config: DockerConfig, command: RunPluginMTRSuite)
 
 
 def _build_plugins_step(config: DockerConfig, command: BuildPlugins):
+    # Besides building, this narrows the requested plugins down to the ones
+    # run.cmake reports as built, into built_plugins, so everything downstream
+    # works off what exists rather than what was asked for. See
+    # BuildPluginsShellCommand.
     return InContainer(
         ShellStep(
             command=command,
             env_vars=_MARIADB_VERSION_ENV + _PLUGINS_ENV,
             options=_BEST_EFFORT_OPTIONS,
-            decode_rc=ShellStep.PARTIAL_SUCCESS_DECODE_RC,
-        ),
-        docker_environment=config,
-    )
-
-
-def _built_plugins_step(config: DockerConfig):
-    # Narrows the requested plugins down to the ones that actually produced
-    # a package, so everything downstream works off what exists rather than
-    # what was asked for.
-    return InContainer(
-        PropFromShellStep(
-            command=ListPluginsWithPackages(),
-            property="built_plugins",
-            env_vars=_PLUGINS_ENV,
+            step_class=BuildPluginsShellCommand,
         ),
         docker_environment=config,
     )
@@ -296,7 +286,6 @@ def _packages(
         )
     )
     sequence.add_step(_build_plugins_step(config, BuildPlugins(package_type)))
-    sequence.add_step(_built_plugins_step(config))
     sequence.add_step(_save_packages_step(config))
 
     # Install and test, in the base image.
@@ -420,7 +409,6 @@ def bintar(
     sequence.add_step(
         _build_plugins_step(config, BuildPlugins(cmake_prefix_path=_SERVER_BINTAR_PROP))
     )
-    sequence.add_step(_built_plugins_step(config))
     sequence.add_step(_save_packages_step(config))
     # There is no install step here, so built is as far as the plugin list
     # gets narrowed -- the extraction takes each built plugin's tarball from
