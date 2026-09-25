@@ -1,6 +1,6 @@
 from buildbot.plugins import steps
 from buildbot.process.buildstep import BuildStepFailed
-from buildbot.process.properties import Property
+from buildbot.process.properties import Interpolate, Property
 from buildbot.steps.trigger import Trigger as BuildbotTrigger
 from twisted.internet import defer
 
@@ -96,8 +96,13 @@ class ConC(Trigger):
 
 
 class _FoundryDispatchStep(BuildbotTrigger):
-    def __init__(self, trigger_specs, **kwargs):
+    # Rendered before getSchedulersAndProperties runs; merged with Trigger's
+    # own renderables, in both buildbot 2.x and 3.0+.
+    renderables = ["source_url"]
+
+    def __init__(self, trigger_specs, source_url, **kwargs):
         self.trigger_specs = trigger_specs
+        self.source_url = source_url
         super().__init__(**kwargs)
 
     # Buildbot's dynamic-trigger extension point: lets one step fan out to a
@@ -114,9 +119,25 @@ class _FoundryDispatchStep(BuildbotTrigger):
         # A pull request build validates a proposed change: it doesn't get to
         # pick a server source (the mirrors are the only sane one for an
         # arbitrary contributor's branch) and it doesn't publish packages.
-        is_pull_request = str(self.getProperty("branch", "") or "").startswith(
-            "refs/pull/"
-        )
+        branch = str(self.getProperty("branch", "") or "")
+        is_pull_request = branch.startswith("refs/pull/")
+        # The commit the preceding steps checked out and discovered the
+        # plugins in, and the archive of it every package build unpacks
+        # instead of cloning Foundry -- see trigger_foundry() in
+        # sequences/foundry/dispatcher.py. Triggered builds don't inherit
+        # this build's properties, so all of it is passed on explicitly.
+        commit = str(self.getProperty("foundry_head", "") or "").strip()
+        foundry_source = {
+            "foundry_commit": commit,
+            # Short form, for the paths saved packages and logs go under.
+            "foundry_revision": str(
+                self.getProperty("foundry_revision", "") or ""
+            ).strip(),
+            "foundry_source_url": self.source_url,
+            "foundry_source_sha256": str(
+                self.getProperty("foundry_source_sha256", "") or ""
+            ).strip(),
+        }
         schedulers_and_properties = []
         # Which versions ran against what is the whole point of this build,
         # and a skipped version leaves no other trace -- so spell the
@@ -126,6 +147,7 @@ class _FoundryDispatchStep(BuildbotTrigger):
         errors = []
 
         event = "pull request" if is_pull_request else "force build"
+        header = [f"event:   {event}", f"commit:  {commit or '(unknown)'} ({branch})"]
 
         if not plugins:
             # Legitimate for a pull request that touches no plugin (docs, CI
@@ -133,9 +155,16 @@ class _FoundryDispatchStep(BuildbotTrigger):
             # simply nothing to build, which is a pass, not a failure.
             yield self.addCompleteLog(
                 "dispatch plan",
-                f"event:   {event}\nNo plugins to build -- nothing triggered\n",
+                "\n".join(header + ["No plugins to build -- nothing triggered"]) + "\n",
             )
             return []
+
+        missing = [name for name, value in foundry_source.items() if not value]
+        if missing:
+            # The package builders have no other way to get Foundry.
+            errors.append(
+                f"no Foundry source to hand on, missing: {', '.join(missing)}"
+            )
 
         for spec in self.trigger_specs:
             version = spec["mariadb_version"]
@@ -173,9 +202,7 @@ class _FoundryDispatchStep(BuildbotTrigger):
                 "mariadb_version": version,
                 "foundry_plugins": plugins,
                 "is_pull_request": is_pull_request,
-                # Triggered builds don't inherit this build's properties, so
-                # pass the forced commit on for the package builders to clone.
-                "foundry_commit": self.getProperty("foundry_commit", ""),
+                **foundry_source,
             }
             if source == sources.CI_TARBALL:
                 # The package builders branch on tarbuildnum alone: set means
@@ -201,7 +228,7 @@ class _FoundryDispatchStep(BuildbotTrigger):
                 else:
                     plan.append(f"{version}: skipped CI-only targets: {ci_only}")
 
-        lines = [f"event:   {event}", f"plugins: {plugins}", *plan]
+        lines = [*header, f"plugins: {plugins}", *plan]
         if errors:
             lines += ["", "Nothing was triggered:", *errors]
         yield self.addCompleteLog("dispatch plan", "\n".join(lines) + "\n")
@@ -215,11 +242,14 @@ class _FoundryDispatchStep(BuildbotTrigger):
 
 
 class FoundryDispatch:
-    def __init__(self, trigger_specs):
+    def __init__(self, trigger_specs, source_url: str):
         # trigger_specs: one dict per supported MariaDB version -- see
         # _dispatch_specs() in
         # configuration/builders/definitions/foundry/builders.py.
+        # source_url: where the package builders download the Foundry
+        # archive from, an Interpolate string.
         self.trigger_specs = trigger_specs
+        self.source_url = source_url
 
     def generate(self):
         # Trigger resolves scheduler names against this list, so it has to
@@ -227,6 +257,7 @@ class FoundryDispatch:
         # given build only fires the ones whose version wasn't skipped.
         return _FoundryDispatchStep(
             trigger_specs=self.trigger_specs,
+            source_url=Interpolate(self.source_url),
             name="Trigger Foundry Builders",
             schedulerNames=sorted(
                 {spec["scheduler"] for spec in self.trigger_specs}

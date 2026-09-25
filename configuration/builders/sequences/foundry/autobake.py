@@ -6,8 +6,7 @@ from configuration.builders.infra.runtime import (
     InContainer,
 )
 from configuration.steps.base import StepOptions
-from configuration.steps.commands.base import URL, BashCommand
-from configuration.steps.commands.download import GitInitFromCommit
+from configuration.steps.commands.base import URL
 from configuration.steps.commands.foundry import (
     BUILT_PLUGINS_ENV,
     INSTALLED_PLUGINS_ENV,
@@ -15,6 +14,7 @@ from configuration.steps.commands.foundry import (
     BuildPlugins,
     BuildPluginsShellCommand,
     DiscoverPluginMTRSuites,
+    DownloadFoundrySource,
     DownloadServerBintar,
     DownloadServerBintarFromMirror,
     ExtractPluginBintarIntoServerBintar,
@@ -34,7 +34,6 @@ from configuration.steps.commands.packages import (
     SetupRPMRepoFromURL,
 )
 from configuration.steps.remote import PropFromShellStep, ShellStep
-from git_auth import git_auth_env_vars
 
 _MARIADB_VERSION_ENV = [("MARIADB_VERSION", "%(prop:mariadb_version)s")]
 
@@ -84,43 +83,17 @@ def _not_pull_request(step):
 _SERVER_SOURCE = "%(prop:tarbuildnum:~mirror)s"
 
 
-def clone_foundry_step(config: DockerConfig, depth: int = 1):
-    # depth=0 (full history) is what the dispatcher needs: working out which
-    # plugins a pull request touches means diffing against the merge-base
-    # with its target branch, which a shallow checkout doesn't have. Foundry
-    # is small enough that a full clone costs nothing. The package builders
-    # only ever build a single checked-out tree, so they keep depth=1.
+def _download_foundry_step(config: DockerConfig):
+    # Foundry comes from the dispatcher, as an archive of the commit it
+    # checked out, rather than from a clone of GitHub -- see trigger_foundry()
+    # in dispatcher.py. It also hands on foundry_revision, the short commit
+    # the saved packages and logs are filed under.
     return InContainer(
         ShellStep(
-            # foundry_commit is only ever set by foundry_force_scheduler (and
-            # handed on by the dispatcher); without it, fetch the branch tip.
-            # For a pull request the branch is the PR's own
-            # refs/pull/<n>/head ref.
-            command=GitInitFromCommit(
-                repo_url="%(prop:repository)s",
-                commit="%(prop:foundry_commit:~%(prop:branch)s)s",
-                depth=depth,
+            command=DownloadFoundrySource(
+                url="%(prop:foundry_source_url)s",
+                sha256="%(prop:foundry_source_sha256)s",
             ),
-            # Foundry lives on github.com, which answers anonymous clones
-            # with a 401. GitInitFromCommit already splices the credential
-            # helper's "git -c" flags into the command line; this is the
-            # other half -- the PAT itself, reaching git through the
-            # environment only. See git_auth.py.
-            secret_env_vars=git_auth_env_vars(),
-        ),
-        docker_environment=config,
-    )
-
-
-def _capture_foundry_revision_step(config: DockerConfig):
-    # clone_foundry_step may have fetched a branch tip rather than a pinned
-    # commit, so read back the commit that actually got checked out --
-    # needed to tell apart saved packages built from different
-    # foundry/plugin source revisions.
-    return InContainer(
-        PropFromShellStep(
-            command=BashCommand(cmd="git rev-parse --short HEAD"),
-            property="foundry_revision",
         ),
         docker_environment=config,
     )
@@ -268,8 +241,7 @@ def _packages(
     sequence = BuildSequence()
 
     # Build, in the worker image.
-    sequence.add_step(clone_foundry_step(config))
-    sequence.add_step(_capture_foundry_revision_step(config))
+    sequence.add_step(_download_foundry_step(config))
     for step in _server_repo_steps(
         package_type, config, repo_file_url, mirror_repo_url, galera_repo_url, "worker"
     ):
@@ -384,8 +356,7 @@ def bintar(
     # newest GA release of this MariaDB version. Only one
     # of the two runs, and whichever does sets server_bintar_dir.
     sequence = BuildSequence()
-    sequence.add_step(clone_foundry_step(config))
-    sequence.add_step(_capture_foundry_revision_step(config))
+    sequence.add_step(_download_foundry_step(config))
     sequence.add_step(
         InContainer(
             PropFromShellStep(

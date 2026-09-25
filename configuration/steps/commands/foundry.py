@@ -129,6 +129,100 @@ echo $out
         ]
 
 
+class ArchiveFoundrySource(Command):
+    # The dispatcher's hand-off of Foundry to its package builders: a `git
+    # archive` of the commit it checked out, published at archive -- a path
+    # under /packages, which is served as ARTIFACTS_URL -- next to a
+    # sha256sums.txt. The package builders download that instead of each
+    # cloning Foundry from GitHub; see DownloadFoundrySource. It holds
+    # Foundry alone: a plugin's own code is fetched by that plugin's
+    # CMakeLists.txt when it builds, as before.
+    #
+    # git archive leaves submodules out. Foundry has none; should that
+    # change, this fails rather than hand on an incomplete tree.
+    #
+    # Emits the archive's SHA-256 on stdout, for capture into a property
+    # (e.g. via PropFromShellStep) and hand-off to the package builders,
+    # which check their download against it.
+    def __init__(self, archive: str, workdir: PurePath = PurePath(".")):
+        self.archive = archive
+        super().__init__(name="Archive Foundry", workdir=workdir)
+
+    def as_cmd_arg(self) -> list[str]:
+        return [
+            "bash",
+            "-exc",
+            util.Interpolate(
+                f"""
+set -euo pipefail
+
+if [ -n "$(git submodule status)" ]; then
+    echo "Foundry has submodules, which git archive would leave out" >&2
+    exit 1
+fi
+
+archive="{self.archive}"
+dir=$(dirname "$archive")
+name=$(basename "$archive")
+mkdir -p "$dir"
+git archive --format=tar.gz --prefix=foundry/ -o "$archive" HEAD
+cd "$dir"
+sha256sum "$name" > sha256sums.txt
+cut -d' ' -f1 sha256sums.txt
+"""
+            ),
+        ]
+
+
+class DownloadFoundrySource(Command):
+    # The package builders' copy of Foundry: the archive the dispatcher
+    # published of the commit it checked out (see ArchiveFoundrySource),
+    # rather than a clone of their own -- one fetch from GitHub per run
+    # instead of one per package build, and every build gets the same tree.
+    #
+    # The download is checked against the SHA-256 the dispatcher handed on,
+    # and retried a few times in case the artifacts server isn't serving the
+    # file yet. It is unpacked into the workdir, which ends up as a checkout
+    # would have left it, bar .git.
+    ATTEMPTS = 5
+
+    def __init__(self, url: str, sha256: str, workdir: PurePath = PurePath(".")):
+        self.url = url
+        self.sha256 = sha256
+        super().__init__(name="Download Foundry", workdir=workdir)
+
+    def as_cmd_arg(self) -> list[str]:
+        return [
+            "bash",
+            "-exc",
+            util.Interpolate(
+                f"""
+set -euo pipefail
+
+url="{self.url}"
+sha256="{self.sha256}"
+if [ -z "$url" ] || [ -z "$sha256" ]; then
+    echo "No Foundry archive to download: only the dispatcher can start this build" >&2
+    exit 1
+fi
+
+archive=foundry.tar.gz
+attempt=1
+until curl -fsSL -o "$archive" "$url" && echo "$sha256  $archive" | sha256sum -c -; do
+    if [ "$attempt" -ge {self.ATTEMPTS} ]; then
+        echo "Could not download $url with the expected SHA-256" >&2
+        exit 1
+    fi
+    sleep $((attempt * 10))
+    attempt=$((attempt + 1))
+done
+tar -xzf "$archive" --strip-components=1
+rm -f "$archive"
+"""
+            ),
+        ]
+
+
 class BuildPlugins(Command):
     # Pass package_type ("RPM" or "DEB") for the -D flag run.cmake expects,
     # or cmake_prefix_path (exclusive of package_type) to instead link
@@ -553,6 +647,11 @@ class SavePluginPackages(Command):
     # destination is rendered once, with a literal $plugin in it for the
     # per-plugin segment -- Interpolate only touches %(...)s, so the shell
     # variable survives rendering.
+    #
+    # Each destination also gets a sha256sums.txt, in sha256sum's own format
+    # like the other builders' saved artifacts, so a download can be checked
+    # with `sha256sum -c sha256sums.txt`. It lists exactly the files this run
+    # saved, hashed from the saved copies.
     def __init__(
         self,
         destination: str,
@@ -563,6 +662,10 @@ class SavePluginPackages(Command):
         super().__init__(name="Save packages", workdir=workdir, user=user)
 
     def as_cmd_arg(self) -> list[str]:
+        # $saved is left unquoted on purpose, to split into file names: CPack
+        # names have no spaces, and run.cmake's summary relies on that too.
+        # It is checked for being empty first, because sha256sum with no file
+        # arguments reads stdin instead and would hang the step.
         return [
             "bash",
             "-exc",
@@ -573,10 +676,15 @@ set -euo pipefail
 for plugin in ${{{BUILT_PLUGINS_ENV}}}; do
     destination="{self.destination}"
     mkdir -p "$destination"
+    saved=""
     for f in "$plugin.build"/*.rpm "$plugin.build"/*.deb "$plugin.build"/*.tar.gz "$plugin.build"/*.zip; do
         [ -e "$f" ] || continue
         cp -r "$f" "$destination"
+        saved="$saved $(basename "$f")"
     done
+    if [ -n "$saved" ]; then
+        (cd "$destination" && sha256sum $saved > sha256sums.txt)
+    fi
 done
 """
             ),

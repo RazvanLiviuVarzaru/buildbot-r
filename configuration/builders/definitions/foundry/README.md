@@ -17,9 +17,9 @@ Two things vary per run and are decided at run time rather than baked into the b
 ```
 
 1. **Trigger** — someone presses Force, or GitHub sends a pull request event for the Foundry repository.
-1. **Discover** — the dispatcher clones Foundry and reads the plugin list out of it: all plugins, or just the ones a pull request touches.
-1. **Fan out** — one `Triggerable` per supported MariaDB version, carrying the plugin list and the chosen package source.
-1. **Build and test** — per OS and architecture: rpm and deb packages are built in the target's worker image, then installed and tested in its plain upstream base image (see below).
+1. **Discover** — the dispatcher clones Foundry, reads the plugin list out of it (all plugins, or just the ones a pull request touches), and publishes a `git archive` of the commit it got.
+1. **Fan out** — one `Triggerable` per supported MariaDB version, carrying that archive, the plugin list and the chosen package source.
+1. **Build and test** — per OS and architecture, starting from the downloaded archive: rpm and deb packages are built in the target's worker image, then installed and tested in its plain upstream base image (see below).
 1. **Report** — the dispatcher waits for every package build and fails if any of them does. On a pull request, its result is posted to GitHub as the `buildbot/foundry-trigger-builders` status.
 
 ### Installing into a base image
@@ -34,7 +34,11 @@ Bintar targets (centos7, almalinux8) have no `-devel` packages to install agains
 
 ### Force build
 
-The force scheduler takes an optional **Foundry commit** (a full SHA). Left empty, the run builds the tip of `repository.branch` in `foundry.yaml` (`main`).
+The force scheduler takes an optional **Foundry commit** (a full SHA). Left empty, the run builds the tip of `repository.branch` in `foundry.yaml` (`main`) as it is when the dispatcher starts.
+
+Either way, the dispatcher is the only one to clone Foundry. It publishes a `git archive` of the commit it checked out, and every package build downloads that, checked against its SHA-256, instead of cloning it again. That is one fetch from GitHub per run rather than one per package build. Package builds start whenever a worker is free, and the branch or pull request may have moved on by then, but all of a run's builds build the commit its plugins were discovered in. The dispatch plan log shows the commit.
+
+The archive holds Foundry alone. Each plugin's own code is fetched by the plugin's `CMakeLists.txt` when it builds, as before.
 
 For each supported MariaDB version the force scheduler also asks where the server packages should come from:
 
@@ -115,13 +119,21 @@ A new platform gets its server builders, and so CI tarballs, well before a relea
 /packages/foundry/<mariadb_version>-<tarbuildnum|mirror>/<plugin>/<foundry_revision>/<buildername>/
 ```
 
-One directory per plugin, taken from that plugin's own `<plugin>.build/` rather than the workspace root, where `run.cmake` pools every plugin's packages together. MTR logs from a failed run are saved per run rather than per plugin, since one MTR invocation covers every plugin's suites:
+One directory per plugin, taken from that plugin's own `<plugin>.build/` rather than the workspace root, where `run.cmake` pools every plugin's packages together. Each directory also holds a `sha256sums.txt` for the packages saved in it, so a download can be checked with `sha256sum -c sha256sums.txt`.
+
+MTR logs from a failed run are saved per run rather than per plugin, since one MTR invocation covers every plugin's suites:
 
 ```text
 /packages/foundry/<mariadb_version>-<tarbuildnum|mirror>/<foundry_revision>/logs/<buildername>/
 ```
 
-Pull request builds save nothing.
+Pull request builds save no packages.
+
+The dispatcher publishes the Foundry archive its package builds download, with a `sha256sums.txt`, one directory per dispatcher build. Pull requests publish it too, since their package builds need it; it is source only, as `tarball-docker` publishes for server pull requests.
+
+```text
+/packages/foundry/sources/<dispatcher build number>/foundry-<commit>.tar.gz
+```
 
 ## Design decisions
 
