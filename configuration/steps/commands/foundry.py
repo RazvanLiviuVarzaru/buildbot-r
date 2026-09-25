@@ -42,13 +42,14 @@ plugin_installed() {
 """,
 }
 
-# add_suites <plugin> <file list> adds the plugin's MTR suites to $suites
-# (comma-separated, once each), or logs that it has none. A suite is a
-# plugin/<x>/<suite>/ directory with t/*.test files; suite.pm is optional.
+# add_suites <plugin>, given the plugin's file list on stdin, adds its MTR
+# suites to $suites (comma-separated, once each) or logs that it has none. A
+# suite is a plugin/<x>/<suite>/ directory with t/*.test files; suite.pm is
+# optional. Fed by process substitution, so bash -x doesn't trace the list.
 _ADD_SUITES = """
 add_suites() {
     found=""
-    for path in $(echo "$2" | grep -oE '/plugin/[^/]+/[^/]+/t/[^/]+\\.test$' || true); do
+    for path in $(grep -oE '/plugin/[^/]+/[^/]+/t/[^/]+\\.test$' || true); do
         found=1
         name=$(basename "$(dirname "$(dirname "$path")")")
         case ",$suites," in
@@ -368,6 +369,9 @@ class InstallBuiltPackages(Command):
     # sink the rest, and checks its packages really landed: apt/dnf can exit 0
     # having skipped a file. Exits 0 if all installed, 2 if some did (see
     # ShellStep.PARTIAL_SUCCESS_DECODE_RC), 1 if none did.
+    #
+    # Paths start with ./ because apt reads "a.build/x.deb" as package
+    # "a.build" from release "x.deb".
     def __init__(self, package_type: str, workdir: PurePath = PurePath(".")):
         self.package_type = package_type
         super().__init__(
@@ -380,13 +384,13 @@ class InstallBuiltPackages(Command):
         if self.package_type == "RPM":
             install = """
 if command -v zypper >/dev/null 2>&1; then
-    zypper --non-interactive install --allow-unsigned-rpm "$1.build"/*.rpm || return 1
+    zypper --non-interactive install --allow-unsigned-rpm ./"$1.build"/*.rpm || return 1
 else
-    dnf install -y "$1.build"/*.rpm || return 1
+    dnf install -y ./"$1.build"/*.rpm || return 1
 fi"""
         else:
             install = """
-apt-get install -y "$1.build"/*.deb || return 1"""
+apt-get install -y ./"$1.build"/*.deb || return 1"""
         # No Interpolate: _PLUGIN_INSTALLED uses %{NAME}.
         return [
             "bash",
@@ -589,13 +593,11 @@ set -euo pipefail
 {_ADD_SUITES}
 suites=""
 for p in ${{{BUILT_PLUGINS_ENV}}}; do
-  files=""
   for f in "$p.build"/*.tar.gz; do
     [ -e "$f" ] || continue
     tar -xf "$f" -C "{self.server_bintar_dir}" --strip-components=1
-    files="$files"$'\\n'"$(tar -tzf "$f")"
   done
-  add_suites "$p" "$files"
+  add_suites "$p" < <(for f in "$p.build"/*.tar.gz; do [ -e "$f" ] && tar -tzf "$f"; done)
 done
 echo "${{suites#,}}"
 """
@@ -630,12 +632,7 @@ set -euo pipefail
 suites=""
 for p in ${{{BUILT_PLUGINS_ENV}}}; do
   plugin_installed "$p" || continue
-  files=""
-  for f in {package_glob}; do
-    [ -e "$f" ] || continue
-    files="$files"$'\\n'"$({list_files_cmd})"
-  done
-  add_suites "$p" "$files"
+  add_suites "$p" < <(for f in {package_glob}; do [ -e "$f" ] && {list_files_cmd}; done)
 done
 echo "${{suites#,}}"
 """,
