@@ -39,15 +39,15 @@ A version's `targets` must be on the mirrors for that version. A platform that i
 
 ## Saved files
 
-Foundry has its own storage, apart from the server's, as the connectors do: `FOUNDRY_PACKAGES_DIR` on the worker hosts, mounted as `/packages` in Foundry's containers, `/srv/buildbot/foundry` on the master host, served at `<ARTIFACTS_URL>/foundry`:
+Foundry has its own storage, apart from the server's, as the connectors do: `FOUNDRY_PACKAGES_DIR` on the worker hosts, `/srv/buildbot/foundry` on the master host, served at `<ARTIFACTS_URL>/foundry`. A run saves everything under `runs/<dispatcher build>/`, which the dispatcher creates, and that is all of the storage its containers mount, the dispatcher's and its package builds', at the same path under `/packages`. A package build saves to `<version>/<builder>/` there. Their containers don't mount the host's ccache.
 
-| What | Where |
+| What | Where, under `runs/<dispatcher build>/` |
 | --- | --- |
-| Packages, with `sha256sums.txt` | `<version>-<tarbuildnum\|mirror>/<plugin>/<revision>/<builder>/` |
-| MTR logs of a failed run | `<version>-<tarbuildnum\|mirror>/<revision>/logs/<builder>/` |
-| Foundry archive, with `sha256sums.txt` | `sources/<dispatcher build>/foundry-<commit>.tar.gz` |
-| Status report: every plugin's build, install and MTR result per version and platform, failed tests only (the dispatcher's Status link). Versions open on click; it filters by plugin and builder | `runs/<dispatcher build>/status.html`, `status.json` |
-| What each package build reports, one file per stage | `runs/<dispatcher build>/<version>/<builder>/` |
+| Foundry archive, with `sha256sums.txt` | `foundry-<commit>.tar.gz` |
+| Status report: every plugin's build, install and MTR result per version and platform, failed tests only (the dispatcher's Status link). Versions open on click; it filters by plugin and builder; each builder links to its directory | `status.html`, `status.json` |
+| A package build's packages, with `sha256sums.txt` | `<version>/<builder>/plugins/<plugin>/` |
+| Its MTR logs, if MTR failed | `<version>/<builder>/logs/` |
+| What it reports, one file per stage | `<version>/<builder>/status/` |
 
 Pull requests save no packages, but still publish the archive their builds need.
 
