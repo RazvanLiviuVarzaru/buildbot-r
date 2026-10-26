@@ -78,6 +78,11 @@ else:
     BUILDERS_WORDPRESS = ["amd64-rhel8-wordpress"]
     BUILDERS_DOCKERLIBRARY = ["amd64-rhel8-dockerlibrary"]
 
+# Dev only: runs "mysqld --verbose --help" in a loop on bbw3-windows, from a
+# local build on the worker, to reproduce mtr's cut-off --help output.
+BUILDER_WINDOWS_HELP_REPRO = "amd64-windows-help-repro"
+WINDOWS_HELP_REPRO_DIR = "C:\\Users\\Administrator\\Documents\\tmp_maria"
+
 BUILDERS_GALERA_MTR = [
     "aarch64-debian-13",
     "s390x-ubuntu-2204",

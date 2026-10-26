@@ -6,6 +6,7 @@ Server builders on non-latent workers, for the platforms that don't run in Docke
 | --- | --- | --- |
 | `amd64-windows` | `bbw4-windows` | Debug build and tests; reports to GitHub |
 | `amd64-windows-packages` | `bbw3-windows` | MSI and zip packages; reports to GitHub |
+| `amd64-windows-help-repro` (dev only) | `bbw3-windows` | Runs `mysqld --verbose --help` from a local build on the worker, the way mtr does, to reproduce its cut-off output; started from the UI with `force_windows_help_repro` |
 | `aarch64-macos`, `aarch64-macos-compile-only` | `bbw1-mac`, `bbw2-mac` | Build and tests; compile only, reporting to GitHub |
 | `amd64-freebsd-14` | `hz-freebsd-bbw1`, `hz-freebsd-bbw2` | Build and tests |
 | `ppc64be-aix-71` | `aix-worker` | Build and tests |
